@@ -1165,3 +1165,10 @@ if __name__ == "__main__":
     print(f"  🔗  Google OAuth:  {'✅ ENABLED' if Config.GOOGLE_OAUTH_ENABLED else '⚠️  Add GOOGLE_OAUTH_CLIENT_ID'}")
     print(f"{'═'*62}\n")
     socketio.run(app, debug=True, port=5000, host="0.0.0.0")
+from flask import Flask
+
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "MeetFlow Running!"
