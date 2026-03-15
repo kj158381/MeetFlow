@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: meetflow
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn -k eventlet -w 1 -b 0.0.0.0:$PORT app:app"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.12
+      - key: DATABASE_PATH
+        value: /data/instance/meetingauto.db
+      - key: UPLOAD_FOLDER
+        value: /data/static/uploads
+      - key: SECRET_KEY
+        generateValue: true
+      - key: FIREBASE_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+    disk:
+      name: meetflow-data
+      mountPath: /data
+      sizeGB: 1

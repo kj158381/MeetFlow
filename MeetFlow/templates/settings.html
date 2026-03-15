@@ -1,0 +1,826 @@
+{% extends "base.html" %}
+{% block title %}Settings — MeetFlow{% endblock %}
+
+{% block content %}
+<div class="flex-1 overflow-y-auto bg-bg-light">
+
+  <!-- Header -->
+  <div class="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between sticky top-0 z-10">
+    <div>
+      <h1 class="font-display font-bold text-slate-900 text-xl">Settings</h1>
+      <p class="text-sm text-slate-500 mt-0.5">Manage your account, integrations and AI preferences</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <div id="saveStatus" class="hidden text-sm text-green-600 font-medium flex items-center gap-1.5">
+        <span class="msymbol text-base">check_circle</span> Saved!
+      </div>
+      <button type="button" onclick="saveAllChanges()" id="save-btn"
+        class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary-dark transition-all shadow-sm shadow-primary/20">
+        <span class="msymbol text-lg">save</span>Save All Changes
+      </button>
+    </div>
+  </div>
+
+  <form id="settings-form" method="POST" action="{{ url_for('settings_save') }}">
+    <div class="max-w-5xl mx-auto px-8 py-8 grid grid-cols-1 lg:grid-cols-4 gap-6">
+
+      <!-- Sidebar Nav -->
+      <div class="lg:col-span-1">
+        <nav class="bg-white rounded-2xl border border-slate-200 p-2 space-y-1 sticky top-24">
+          {% set tabs = [
+            ('profile', 'person', 'Profile'),
+            ('notifications', 'notifications', 'Notifications'),
+            ('gmail', 'mail', 'Gmail & SMTP'),
+            ('integrations', 'hub', 'Integrations'),
+            ('features', 'auto_awesome', 'AI Features'),
+            ('translation', 'translate', 'Translation'),
+            ('appearance', 'palette', 'Appearance'),
+            ('privacy', 'security', 'Privacy & Security'),
+          ] %}
+          {% for tid, icon, label in tabs %}
+          <button type="button" onclick="showTab('{{ tid }}')" id="tab-btn-{{ tid }}"
+            class="tab-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition-all text-left
+            {% if loop.first %}bg-primary/10 text-primary font-semibold{% endif %}">
+            <span class="msymbol text-lg">{{ icon }}</span>{{ label }}
+          </button>
+          {% endfor %}
+          <div class="pt-2 border-t border-slate-100 mt-2">
+            <a href="{{ url_for('logout') }}" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-all">
+              <span class="msymbol text-lg">logout</span>Sign Out
+            </a>
+          </div>
+        </nav>
+      </div>
+
+      <!-- Tab Content -->
+      <div class="lg:col-span-3 space-y-6">
+
+        <!-- ═══ PROFILE ════════════════════════════════════════ -->
+        <div id="tab-profile" class="tab-panel space-y-6">
+          <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h2 class="font-display font-bold text-slate-900 text-base mb-1">Profile Information</h2>
+            <p class="text-sm text-slate-500 mb-6">Update your personal details</p>
+            <div class="flex items-center gap-5 mb-6 p-4 bg-slate-50 rounded-xl">
+              {% if user and user.picture %}
+              <img src="{{ user.picture }}" class="size-16 rounded-full object-cover border-4 border-white shadow-md user-avatar-img" alt="Avatar"/>
+              {% else %}
+              <div class="size-16 rounded-full bg-gradient-to-br from-primary to-blue-400 flex items-center justify-center text-white font-bold text-2xl shadow-md user-avatar-img-placeholder">
+                {{ (user.name or 'U')[0].upper() if user else 'U' }}
+              </div>
+              {% endif %}
+              <div>
+                <p class="font-semibold text-slate-900">{{ user.name if user else 'User' }}</p>
+                <p class="text-sm text-slate-500">{{ user.email if user else '' }}</p>
+                <span class="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-50 text-orange-600 border border-orange-100">
+                  Secure Auth
+                </span>
+                <div class="mt-2">
+                  <input type="file" id="avatarInput" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden"/>
+                  <button type="button" id="avatarUploadBtn"
+                    onclick="document.getElementById('avatarInput').click()"
+                    class="text-xs px-3 py-1.5 rounded-lg bg-primary text-white font-medium hover:bg-blue-700 transition-all flex items-center gap-1">
+                    <span class="msymbol text-sm">photo_camera</span>Change Photo
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="label">Display Name</label>
+                <input type="text" name="display_name" value="{{ settings.display_name or (user.name if user else '') }}" class="input" placeholder="Your display name"/>
+              </div>
+              <div>
+                <label class="label">Email (read-only)</label>
+                <input type="email" value="{{ user.email if user else '' }}" readonly class="input opacity-50 cursor-not-allowed"/>
+              </div>
+              <div>
+                <label class="label">Timezone</label>
+                <select name="timezone" class="input">
+                  {% for tz in ['UTC','America/New_York','America/Chicago','America/Denver','America/Los_Angeles','America/Sao_Paulo','Europe/London','Europe/Paris','Europe/Berlin','Europe/Moscow','Asia/Dubai','Asia/Kolkata','Asia/Singapore','Asia/Tokyo','Asia/Shanghai','Australia/Sydney','Pacific/Auckland'] %}
+                  <option value="{{ tz }}" {{ 'selected' if settings.timezone == tz }}>{{ tz }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div>
+                <label class="label">Interface Language</label>
+                <select name="language" class="input">
+                  {% for code, name in [('en','English'),('es','Español'),('fr','Français'),('de','Deutsch'),('hi','हिंदी'),('ta','தமிழ்'),('zh','中文'),('ja','日本語'),('ar','العربية'),('pt','Português'),('ru','Русский'),('ko','한국어')] %}
+                  <option value="{{ code }}" {{ 'selected' if settings.language == code }}>{{ name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ NOTIFICATIONS ══════════════════════════════════ -->
+        <div id="tab-notifications" class="tab-panel hidden space-y-6">
+          <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h2 class="font-display font-bold text-slate-900 text-base mb-1">Notifications</h2>
+            <p class="text-sm text-slate-500 mb-6">Control when and how you get notified</p>
+            <div class="space-y-4">
+              {% set notif_items = [
+                ('notif_browser', 'Browser Notifications', 'Pop-up alerts in your browser', 'notifications'),
+                ('notif_email', 'Email Notifications', 'Receive important alerts via email', 'mail'),
+                ('notif_meeting_start', 'Meeting Started Alert', 'Email when a meeting begins', 'video_call'),
+                ('notif_meeting_reminder', 'Meeting Reminders', 'Reminder before scheduled meetings', 'alarm'),
+                ('notif_task_due', 'Task Due Alerts', 'Notify when tasks are due', 'task_alt'),
+                ('notif_meeting_invite', 'Meeting Invites', 'Send invite emails to participants', 'person_add'),
+                ('notif_summary_ready', 'AI Summary Ready', 'Email when AI notes are generated', 'auto_awesome'),
+              ] %}
+              {% for name, label, desc, icon in notif_items %}
+              <div class="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-100">
+                <div class="flex items-center gap-3">
+                  <span class="msymbol text-primary text-xl">{{ icon }}</span>
+                  <div>
+                    <p class="text-sm font-semibold text-slate-900">{{ label }}</p>
+                    <p class="text-xs text-slate-500">{{ desc }}</p>
+                  </div>
+                </div>
+                <label class="toggle">
+                  <input type="checkbox" name="{{ name }}" {{ 'checked' if settings.get(name, 1) }}>
+                  <span class="slider"></span>
+                </label>
+              </div>
+              {% endfor %}
+              <div class="flex items-center gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
+                <span class="msymbol text-primary text-xl">timer</span>
+                <div class="flex-1">
+                  <p class="text-sm font-semibold text-slate-900">Reminder Lead Time</p>
+                  <p class="text-xs text-slate-500">How many minutes before a meeting to send a reminder</p>
+                </div>
+                <select name="reminder_minutes" class="input" style="width:auto">
+                  {% for m in [5, 10, 15, 30, 60] %}
+                  <option value="{{ m }}" {{ 'selected' if settings.reminder_minutes == m }}>{{ m }} min</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ GMAIL ══════════════════════════════════════════ -->\
+        <div id="tab-gmail" class="tab-panel hidden space-y-6">
+          <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h2 class="font-display font-bold text-slate-900 text-base mb-1">Gmail SMTP Setup</h2>
+            <p class="text-sm text-slate-500 mb-1">Used to send login alerts, meeting invites, and AI summaries</p>
+
+            <!-- Gmail connected success banner -->
+            <div class="bg-green-50 border border-green-200 rounded-xl p-4 mb-6 flex gap-3">
+              <span class="msymbol text-green-500 text-xl shrink-0">check_circle</span>
+              <div class="text-sm text-green-800">
+                <p class="font-semibold mb-1">✅ Gmail SMTP is configured</p>
+                <p class="text-xs text-green-700">Your Gmail App Password is set and ready to send emails.</p>
+              </div>
+            </div>
+            <div class="space-y-4">
+              <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+                <div class="flex items-center gap-3">
+                  <span class="msymbol text-primary text-xl">send</span>
+                  <div>
+                    <p class="text-sm font-semibold text-slate-900">Enable Gmail Sending</p>
+                    <p class="text-xs text-slate-500">Master switch for all email features</p>
+                  </div>
+                </div>
+                <label class="toggle">
+                  <input type="checkbox" name="smtp_enabled" {{ 'checked' if settings.smtp_enabled }}>
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div>
+                <label class="label">Gmail Address</label>
+                <input type="email" name="gmail_address" id="gmail_address" value="{{ settings.gmail_address or '' }}"
+                  class="input" placeholder="yourname@gmail.com"/>
+              </div>
+              <div>
+                <label class="label">App Password (16 characters)</label>
+                <div class="relative">
+                  <input type="password" name="gmail_app_password" id="gmail_app_password"
+                    value="{{ settings.gmail_app_password or '' }}"
+                    class="input pr-12" placeholder="xxxx xxxx xxxx xxxx"/>
+                  <button type="button" onclick="togglePwdVis('gmail_app_password', this)"
+                    class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                    <span class="msymbol text-xl">visibility</span>
+                  </button>
+                </div>
+                <p class="text-xs text-slate-400 mt-1">Spaces are OK — Gmail generates it with spaces</p>
+              </div>
+
+              <!-- Test email button -->
+              <div class="flex gap-3">
+                <button type="button" onclick="testEmail()" id="testEmailBtn"
+                  class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-all">
+                  <span class="msymbol text-lg">send</span>Send Test Email to Myself
+                </button>
+                <div id="testEmailResult" class="hidden text-sm p-2.5 rounded-xl flex-1 flex items-start gap-2"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Send to ANY email (the key feature) -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h3 class="font-display font-bold text-slate-900 text-base mb-1 flex items-center gap-2">
+              <span class="msymbol text-primary text-xl">forward_to_inbox</span>
+              Send Email to Anyone
+            </h3>
+            <p class="text-sm text-slate-500 mb-4">
+              Send from your Gmail to <strong>any email address</strong> — Gmail, Outlook, Yahoo, Google Workspace, corporate email, etc.
+            </p>
+            <div class="space-y-3">
+              <div>
+                <label class="label">Recipient Email(s)</label>
+                <input type="text" id="sendToEmails" class="input"
+                  placeholder="alice@gmail.com, bob@company.com, carol@outlook.com"/>
+                <p class="text-xs text-slate-400 mt-1">Separate multiple emails with commas</p>
+              </div>
+              <div>
+                <label class="label">Subject</label>
+                <input type="text" id="sendToSubject" class="input" placeholder="Email subject…"/>
+              </div>
+              <div>
+                <label class="label">Message</label>
+                <textarea id="sendToBody" class="input" rows="4" placeholder="Type your message here…"></textarea>
+              </div>
+              <div class="flex gap-3 items-start">
+                <button type="button" onclick="sendEmailToAnyone()" id="sendToBtn"
+                  class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary-dark transition-all">
+                  <span class="msymbol text-lg">send</span>Send Email Now
+                </button>
+                <div id="sendToResult" class="hidden text-sm p-2.5 rounded-xl flex-1 flex items-start gap-2"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Email Stats -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h3 class="font-display font-semibold text-slate-900 text-sm mb-4">Email Statistics</h3>
+            <div class="grid grid-cols-3 gap-4">
+              <div class="text-center p-4 bg-green-50 rounded-xl">
+                <p class="text-2xl font-bold text-green-700">{{ email_count }}</p>
+                <p class="text-xs text-green-600 font-medium">Emails Sent</p>
+              </div>
+              <div class="text-center p-4 bg-blue-50 rounded-xl">
+                <p class="text-2xl font-bold text-blue-700">{{ settings.notif_meeting_invite and 'On' or 'Off' }}</p>
+                <p class="text-xs text-blue-600 font-medium">Invite Emails</p>
+              </div>
+              <div class="text-center p-4 bg-purple-50 rounded-xl">
+                <p class="text-2xl font-bold text-purple-700">{{ settings.smtp_enabled and 'Active' or 'Off' }}</p>
+                <p class="text-xs text-purple-600 font-medium">SMTP Status</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ INTEGRATIONS ═══════════════════════════════════ -->
+        <div id="tab-integrations" class="tab-panel hidden space-y-6">
+          <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h2 class="font-display font-bold text-slate-900 text-base mb-1">Connected Apps</h2>
+            <p class="text-sm text-slate-500 mb-4">Sync your tools with MeetFlow</p>
+
+            <!-- OAuth Setup Guide -->
+            {% if not google_oauth_enabled %}
+            <div class="rounded-2xl border border-amber-200 bg-amber-50 p-5 mb-6">
+              <div class="flex items-start gap-3 mb-3">
+                <span class="msymbol text-amber-500 text-xl shrink-0 mt-0.5">warning</span>
+                <div>
+                  <p class="font-semibold text-amber-900 text-sm">Google OAuth not configured yet</p>
+                  <p class="text-xs text-amber-700 mt-0.5">Follow these steps to enable Google Contacts, Calendar &amp; Gmail integration.</p>
+                </div>
+              </div>
+              <div class="space-y-2 ml-8">
+                <div class="flex items-start gap-2.5">
+                  <span class="size-5 rounded-full bg-amber-200 text-amber-800 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+                  <p class="text-xs text-amber-800">Go to <a href="https://console.cloud.google.com" target="_blank" class="font-semibold underline hover:text-amber-900">console.cloud.google.com</a> → <strong>APIs &amp; Services → Credentials</strong></p>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <span class="size-5 rounded-full bg-amber-200 text-amber-800 text-xs font-bold flex items-center justify-content-center flex-shrink-0 mt-0.5" style="display:flex;align-items:center;justify-content:center">2</span>
+                  <p class="text-xs text-amber-800">Click <strong>Create Credentials → OAuth 2.0 Client ID</strong> · Type: <strong>Web application</strong></p>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <span class="size-5 rounded-full bg-amber-200 text-amber-800 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
+                  <p class="text-xs text-amber-800">Add Authorized Redirect URI: <code class="bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded font-mono text-xs select-all">{{ request.host_url }}auth/google/callback</code></p>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <span class="size-5 rounded-full bg-amber-200 text-amber-800 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
+                  <p class="text-xs text-amber-800">Copy the Client ID &amp; Secret → paste into your <code class="bg-amber-100 border border-amber-200 px-1 rounded font-mono text-xs">.env</code> file as <code class="bg-amber-100 border border-amber-200 px-1 rounded font-mono text-xs">GOOGLE_OAUTH_CLIENT_ID</code> and <code class="bg-amber-100 border border-amber-200 px-1 rounded font-mono text-xs">GOOGLE_OAUTH_CLIENT_SECRET</code>, then restart the server.</p>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+
+            <!-- "Google hasn't verified this app" guide — shown when OAuth IS configured -->
+            {% if google_oauth_enabled and not google_connected %}
+            <div class="rounded-2xl border border-blue-200 bg-blue-50 p-5 mb-6">
+              <div class="flex items-start gap-3">
+                <span class="msymbol text-blue-500 text-xl shrink-0 mt-0.5">info</span>
+                <div>
+                  <p class="font-semibold text-blue-900 text-sm">Seeing "Google hasn't verified this app"?</p>
+                  <p class="text-xs text-blue-700 mt-1 mb-2">This is normal for development apps. Your app is in test mode. To proceed safely:</p>
+                  <ol class="space-y-1 text-xs text-blue-800 list-decimal list-inside">
+                    <li>Click <strong>Advanced</strong> (bottom-left of the Google warning screen)</li>
+                    <li>Click <strong>"Go to [project name] (unsafe)"</strong></li>
+                    <li>Sign in with your Google account — this is safe for your own development project</li>
+                    <li>To remove this warning permanently: In Google Cloud Console → <strong>OAuth consent screen → Publish app</strong> (or add your email as a test user)</li>
+                  </ol>
+                  <div class="mt-3 p-2.5 bg-blue-100 rounded-xl border border-blue-200">
+                    <p class="text-xs text-blue-800 font-semibold">💡 Quick fix: Add yourself as a test user</p>
+                    <p class="text-xs text-blue-700 mt-0.5">Google Cloud Console → APIs &amp; Services → <strong>OAuth consent screen</strong> → scroll to <strong>Test users</strong> → Add your Gmail address. You'll skip the warning immediately.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+
+            <div class="space-y-4">
+
+              <!-- Google -->
+              <div class="border border-slate-200 rounded-2xl p-5 flex items-center gap-4 {{ 'border-green-200 bg-green-50/30' if google_connected else '' }}">
+                <div class="size-12 rounded-2xl bg-white shadow-sm border border-slate-100 flex items-center justify-center">
+                  <svg width="24" height="24" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="font-semibold text-slate-900">Google Workspace</p>
+                  <p class="text-xs text-slate-500">Contacts, Calendar, Meet</p>
+                  <div class="flex gap-2 mt-1 flex-wrap">
+                    <span class="px-1.5 py-0.5 rounded text-xs {{ 'bg-green-100 text-green-700' if google_connected else 'bg-slate-100 text-slate-500' }}">Contacts</span>
+                    <span class="px-1.5 py-0.5 rounded text-xs {{ 'bg-green-100 text-green-700' if google_connected else 'bg-slate-100 text-slate-500' }}">Calendar</span>
+                    <span class="px-1.5 py-0.5 rounded text-xs bg-slate-100 text-slate-500">Meet</span>
+                  </div>
+                </div>
+                {% if google_connected %}
+                <div class="flex items-center gap-2">
+                  <span class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-green-100 text-green-700 flex items-center gap-1.5">
+                    <span class="size-1.5 rounded-full bg-green-500"></span>Connected
+                  </span>
+                </div>
+                {% else %}
+                <a href="{{ url_for('google_connect') }}"
+                  class="px-4 py-2 rounded-xl text-sm font-semibold bg-primary text-white hover:bg-blue-700 transition-all">
+                  Connect
+                </a>
+                {% endif %}
+              </div>
+
+              <!-- Google Meet -->
+              <div class="border border-slate-200 rounded-2xl p-5 flex items-center gap-4">
+                <div class="size-12 rounded-2xl bg-white shadow-sm border border-slate-100 flex items-center justify-center text-2xl">🎥</div>
+                <div class="flex-1 min-w-0">
+                  <p class="font-semibold text-slate-900">Google Meet</p>
+                  <p class="text-xs text-slate-500">Join meetings directly in MeetFlow</p>
+                </div>
+                <span class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-50 text-blue-600">External Link</span>
+              </div>
+
+
+
+            </div>
+          </div>
+
+          <!-- Integration Status Live Check -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-display font-semibold text-slate-900 text-sm">Live Status Check</h3>
+              <button type="button" onclick="checkIntegrationStatus()" class="text-xs text-primary font-semibold hover:underline flex items-center gap-1">
+                <span class="msymbol text-base">refresh</span>Refresh
+              </button>
+            </div>
+            <div id="integrationStatus" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+          </div>
+        </div>
+
+        <!-- ═══ AI FEATURES ═════════════════════════════════════ -->
+        <div id="tab-features" class="tab-panel hidden space-y-6">
+          <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h2 class="font-display font-bold text-slate-900 text-base mb-1">AI & Meeting Features</h2>
+            <p class="text-sm text-slate-500 mb-2">AI-powered</p>
+            {% if ai_enabled %}
+            <div class="flex items-center gap-2 mb-6 p-3 bg-green-50 border border-green-200 rounded-xl">
+              <span class="msymbol text-green-600 text-xl">check_circle</span>
+              <p class="text-sm text-green-700 font-medium">Smart analysis is active — all AI features available</p>
+            </div>
+            {% else %}
+            <div class="flex items-center gap-2 mb-6 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+              <span class="msymbol text-amber-500 text-xl">warning</span>
+              <p class="text-sm text-amber-700">Add GEMINI_API_KEY to .env to enable AI features</p>
+            </div>
+            {% endif %}
+            <div class="space-y-3">
+              {% set feat_items = [
+                ('feat_ai_summary', 'AI Meeting Summary', 'Auto-generate summaries at meeting end', 'summarize'),
+                ('feat_auto_transcript', 'Live Transcription', 'Real-time speech-to-text during meetings', 'mic'),
+                ('feat_smart_tasks', 'Smart Task Extraction', 'Auto-detect action items from transcript', 'task_alt'),
+                ('feat_calendar_sync', 'Calendar Auto-Sync', 'Add meetings to calendar automatically', 'calendar_month'),
+                ('feat_live_translation', 'Live Voice Translation', 'Translate speech in real-time (11+ languages)', 'translate'),
+              ] %}
+              {% for name, label, desc, icon in feat_items %}
+              <div class="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-100">
+                <div class="flex items-center gap-3">
+                  <span class="msymbol text-primary text-xl">{{ icon }}</span>
+                  <div>
+                    <p class="text-sm font-semibold text-slate-900">{{ label }}</p>
+                    <p class="text-xs text-slate-500">{{ desc }}</p>
+                  </div>
+                </div>
+                <label class="toggle">
+                  <input type="checkbox" name="{{ name }}" {{ 'checked' if settings.get(name, 1) }}>
+                  <span class="slider"></span>
+                </label>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ TRANSLATION ════════════════════════════════════ -->
+        <div id="tab-translation" class="tab-panel hidden space-y-6">
+          <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h2 class="font-display font-bold text-slate-900 text-base mb-1">Translation Settings</h2>
+            <p class="text-sm text-slate-500 mb-6">Configure how live voice translation works in meetings</p>
+
+            <div class="space-y-5">
+              <div>
+                <label class="label">Default Translation Language</label>
+                <p class="text-xs text-slate-400 mb-2">This language is pre-selected when you start a live meeting</p>
+                <select name="translation_language" class="input">
+                  {% for code, flag, name in [
+                    ('es','🇪🇸','Spanish'), ('fr','🇫🇷','French'), ('de','🇩🇪','German'),
+                    ('hi','🇮🇳','Hindi'), ('ta','🇮🇳','Tamil'), ('zh','🇨🇳','Chinese (Simplified)'),
+                    ('ja','🇯🇵','Japanese'), ('ar','🇸🇦','Arabic'), ('pt','🇧🇷','Portuguese'),
+                    ('ru','🇷🇺','Russian'), ('ko','🇰🇷','Korean')
+                  ] %}
+                  <option value="{{ code }}" {{ 'selected' if settings.translation_language == code }}>
+                    {{ flag }} {{ name }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <!-- Translation Engine Info -->
+              <div class="border border-slate-100 rounded-xl divide-y divide-slate-100 overflow-hidden">
+                <div class="p-4 flex items-center gap-3 {{ 'bg-green-50' if ai_enabled else 'bg-slate-50' }}">
+                  <span class="msymbol {{ 'text-green-600' if ai_enabled else 'text-slate-400' }} text-xl">auto_awesome</span>
+                  <div class="flex-1">
+                    <p class="text-sm font-semibold {{ 'text-green-800' if ai_enabled else 'text-slate-600' }}">1. Smart Analysis (Primary) — Best Quality</p>
+                    <p class="text-xs {{ 'text-green-600' if ai_enabled else 'text-slate-400' }}">Corrects transcription errors AND translates. {{ 'ACTIVE' if ai_enabled else 'Add GEMINI_API_KEY to .env' }}</p>
+                  </div>
+                  <span class="px-2 py-1 rounded-lg text-xs font-bold {{ 'bg-green-100 text-green-700' if ai_enabled else 'bg-slate-100 text-slate-500' }}">
+                    {{ 'Active' if ai_enabled else 'Off' }}
+                  </span>
+                </div>
+                <div class="p-4 flex items-center gap-3 {{ 'bg-blue-50' if translate_api_enabled else 'bg-slate-50' }}">
+                  <span class="msymbol {{ 'text-blue-600' if translate_api_enabled else 'text-slate-400' }} text-xl">translate</span>
+                  <div class="flex-1">
+                    <p class="text-sm font-semibold {{ 'text-blue-800' if translate_api_enabled else 'text-slate-600' }}">2. Translation Service (Fallback)</p>
+                    <p class="text-xs {{ 'text-blue-600' if translate_api_enabled else 'text-slate-400' }}">{{ 'ACTIVE — high accuracy' if translate_api_enabled else 'Add GOOGLE_TRANSLATE_API_KEY to .env' }}</p>
+                  </div>
+                  <span class="px-2 py-1 rounded-lg text-xs font-bold {{ 'bg-blue-100 text-blue-700' if translate_api_enabled else 'bg-slate-100 text-slate-500' }}">
+                    {{ 'Active' if translate_api_enabled else 'Off' }}
+                  </span>
+                </div>
+                <div class="p-4 flex items-center gap-3 bg-slate-50">
+                  <span class="msymbol text-slate-500 text-xl">bolt</span>
+                  <div class="flex-1">
+                    <p class="text-sm font-semibold text-slate-600">3. MyMemory Free (Always available)</p>
+                    <p class="text-xs text-slate-400">Free API, no key required. 5000 words/day limit</p>
+                  </div>
+                  <span class="px-2 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-600">Free</span>
+                </div>
+              </div>
+
+              <div class="p-4 bg-blue-50 rounded-xl text-sm text-blue-800">
+                <p class="font-semibold mb-1">Supported Languages (11)</p>
+                <p class="text-xs text-blue-600">Spanish • French • German • Hindi • Tamil • Chinese • Japanese • Arabic • Portuguese • Russian • Korean</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ APPEARANCE ══════════════════════════════════════ -->
+        <div id="tab-appearance" class="tab-panel hidden space-y-6">
+          <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h2 class="font-display font-bold text-slate-900 text-base mb-1">Appearance</h2>
+            <p class="text-sm text-slate-500 mb-6">Customize how MeetFlow looks</p>
+            <div class="space-y-5">
+              <div>
+                <label class="label mb-3 block">Theme</label>
+                <div class="grid grid-cols-3 gap-3">
+                  {% for val, label, bg in [('light','Light','bg-white border-2 border-slate-200'), ('dark','Dark','bg-slate-900 border-2 border-slate-700'), ('auto','System','bg-gradient-to-r from-white to-slate-900 border-2 border-slate-300')] %}
+                  <label class="cursor-pointer">
+                    <input type="radio" name="theme" value="{{ val }}" class="sr-only peer" {{ 'checked' if settings.theme == val or (not settings.theme and val=='light') }}>
+                    <div class="{{ bg }} rounded-xl p-4 text-center peer-checked:ring-2 peer-checked:ring-primary transition-all hover:shadow-md">
+                      <div class="h-10 rounded-lg {{ 'bg-slate-50 border border-slate-200' if val=='light' else 'bg-slate-800' if val=='dark' else 'bg-gradient-to-r from-slate-50 to-slate-700' }} mb-2"></div>
+                      <p class="text-xs font-semibold {{ 'text-white' if val=='dark' else 'text-slate-700' }}">{{ label }}</p>
+                    </div>
+                  </label>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-100">
+                <div class="flex items-center gap-3">
+                  <span class="msymbol text-primary text-xl">view_sidebar</span>
+                  <div>
+                    <p class="text-sm font-semibold text-slate-900">Compact Sidebar</p>
+                    <p class="text-xs text-slate-500">Show icons only, hide labels</p>
+                  </div>
+                </div>
+                <label class="toggle">
+                  <input type="checkbox" name="sidebar_compact" {{ 'checked' if settings.sidebar_compact }}>
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div>
+                <label class="label">Default Calendar View</label>
+                <select name="calendar_view" class="input">
+                  {% for val, label in [('month','Month'),('week','Week'),('day','Day'),('agenda','Agenda')] %}
+                  <option value="{{ val }}" {{ 'selected' if settings.calendar_view == val }}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ PRIVACY ════════════════════════════════════════ -->
+        <div id="tab-privacy" class="tab-panel hidden space-y-6">
+          <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h2 class="font-display font-bold text-slate-900 text-base mb-1">Privacy & Security</h2>
+            <p class="text-sm text-slate-500 mb-6">Control how your data is handled</p>
+            <div class="space-y-4">
+              <div class="p-4 rounded-xl bg-blue-50 border border-blue-100 flex gap-3">
+                <span class="msymbol text-blue-600 text-xl shrink-0">security</span>
+                <div>
+                  <p class="text-sm font-semibold text-blue-900">Secure Authentication</p>
+                  <p class="text-xs text-blue-700">Your account is secured with industry-standard encryption. Passwords are never stored in plain text.</p>
+                </div>
+              </div>
+              <div class="p-4 rounded-xl bg-green-50 border border-green-100 flex gap-3">
+                <span class="msymbol text-green-600 text-xl shrink-0">lock</span>
+                <div>
+                  <p class="text-sm font-semibold text-green-900">Login Notifications</p>
+                  <p class="text-xs text-green-700">Every new sign-in sends an alert to your email if Gmail SMTP is configured.</p>
+                </div>
+              </div>
+              <div class="p-4 rounded-xl bg-slate-50 border border-slate-100 flex gap-3">
+                <span class="msymbol text-slate-500 text-xl shrink-0">storage</span>
+                <div>
+                  <p class="text-sm font-semibold text-slate-900">Data Storage</p>
+                  <p class="text-xs text-slate-600">Meeting notes, transcripts and contacts are stored locally in SQLite. No cloud sync without your explicit consent.</p>
+                </div>
+              </div>
+            </div>
+            <div class="mt-6 pt-6 border-t border-slate-100">
+              <h3 class="text-sm font-semibold text-slate-900 mb-4">Danger Zone</h3>
+              <div class="space-y-3">
+                <button type="button" onclick="clearNotes()"
+                  class="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 transition-all text-sm font-medium">
+                  <span class="msymbol text-lg">delete_sweep</span>Clear All Meeting Notes
+                </button>
+                <a href="{{ url_for('logout') }}"
+                  class="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 transition-all text-sm font-medium">
+                  <span class="msymbol text-lg">logout</span>Sign Out of MeetFlow
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /tab-content -->
+    </div><!-- /grid -->
+  </form>
+</div>
+
+<style>
+.label { display:block; font-size:.875rem; font-weight:500; color:#374151; margin-bottom:.375rem; }
+.input { width:100%; padding:.625rem 1rem; border:1.5px solid #e2e8f0; border-radius:.75rem; font-size:.875rem; outline:none; transition:all .15s; background:#fff; }
+.input:focus { border-color:#135bec; box-shadow:0 0 0 3px rgba(19,91,236,.1); }
+.tab-btn.active-tab { background:rgba(19,91,236,.1); color:#135bec; font-weight:600; }
+.toggle { position:relative; display:inline-block; width:44px; height:24px; flex-shrink:0; }
+.toggle input { opacity:0; width:0; height:0; }
+.slider { position:absolute; cursor:pointer; inset:0; background:#e2e8f0; border-radius:24px; transition:.3s; }
+.slider:before { position:absolute; content:""; height:18px; width:18px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.3s; box-shadow:0 1px 3px rgba(0,0,0,.2); }
+input:checked + .slider { background:#135bec; }
+input:checked + .slider:before { transform:translateX(20px); }
+</style>
+
+<script>
+function showTab(tabId) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active-tab','bg-primary/10','text-primary','font-semibold'));
+  document.getElementById('tab-' + tabId)?.classList.remove('hidden');
+  const btn = document.getElementById('tab-btn-' + tabId);
+  if (btn) btn.classList.add('active-tab','bg-primary/10','text-primary','font-semibold');
+  if (tabId === 'integrations') checkIntegrationStatus();
+}
+
+function saveAllChanges() {
+  document.getElementById('settings-form').submit();
+}
+
+function togglePwdVis(inputId, btn) {
+  const inp = document.getElementById(inputId);
+  const icon = btn.querySelector('.msymbol');
+  if (inp.type === 'password') {
+    inp.type = 'text'; icon.textContent = 'visibility_off';
+  } else {
+    inp.type = 'password'; icon.textContent = 'visibility';
+  }
+}
+
+async function testEmail() {
+  const btn    = document.getElementById('testEmailBtn');
+  const result = document.getElementById('testEmailResult');
+  const gu     = document.getElementById('gmail_address').value.trim();
+  const gp     = document.getElementById('gmail_app_password').value.trim();
+  if (!gu || !gp) { alert('Fill Gmail address and App Password first.'); return; }
+  btn.disabled = true; btn.textContent = 'Sending…';
+  result.className = 'text-sm p-2.5 rounded-xl flex-1 flex items-start gap-2 bg-blue-50 text-blue-700';
+  result.innerHTML = '<span class="msymbol">hourglass_empty</span> Sending test email…';
+  result.classList.remove('hidden');
+  try {
+    const res  = await fetch('/settings/test-email', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({gmail_address:gu, gmail_app_password:gp})
+    });
+    const data = await res.json();
+    result.className = `text-sm p-2.5 rounded-xl flex-1 flex items-start gap-2 ${data.success?'bg-green-50 text-green-700':'bg-red-50 text-red-700'}`;
+    result.innerHTML = `<span class="msymbol text-lg">${data.success?'check_circle':'error'}</span><span style="white-space:pre-wrap">${data.message}</span>`;
+  } catch(e) {
+    result.className = 'text-sm p-2.5 rounded-xl flex-1 flex items-start gap-2 bg-red-50 text-red-700';
+    result.innerHTML = '<span class="msymbol">error</span> Network error — check your connection.';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span class="msymbol text-lg">send</span> Send Test Email';
+  }
+}
+
+async function checkIntegrationStatus() {
+  const container = document.getElementById('integrationStatus');
+  if (!container) return;
+  container.innerHTML = '<p class="text-xs text-slate-400 col-span-3">Checking…</p>';
+  try {
+    const res  = await fetch('/api/integrations/status');
+    const data = await res.json();
+    const items = [
+      ['Google Contacts', data.google_contacts, 'group'],
+      ['Google Calendar', data.google_calendar, 'calendar_month'],
+      ['Gmail SMTP',      data.gmail_smtp,      'mail'],
+      ['Smart Analysis',    data.gemini_ai,       'auto_awesome'],
+      ['Google Translate',data.google_translate,'translate'],
+    ];
+    container.innerHTML = items.map(([label, ok, icon]) => `
+      <div class="flex items-center gap-2 p-2.5 rounded-xl ${ok?'bg-green-50':'bg-slate-50'} border ${ok?'border-green-200':'border-slate-100'}">
+        <span class="msymbol text-base ${ok?'text-green-600':'text-slate-400'}">${icon}</span>
+        <div class="min-w-0 flex-1">
+          <p class="text-xs font-semibold ${ok?'text-green-800':'text-slate-600'} truncate">${label}</p>
+          <p class="text-xs ${ok?'text-green-600':'text-slate-400'}">${ok?'Active':'Not set'}</p>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    container.innerHTML = '<p class="text-xs text-red-500 col-span-3">Could not fetch status</p>';
+  }
+}
+
+async function clearNotes() {
+  if (!confirm('Delete ALL meeting notes permanently? This cannot be undone.')) return;
+  alert('Note clearing requires a database call — implement /api/notes/clear endpoint if needed.');
+}
+
+async function sendEmailToAnyone() {
+  const toRaw  = document.getElementById('sendToEmails')?.value.trim();
+  const subj   = document.getElementById('sendToSubject')?.value.trim();
+  const body   = document.getElementById('sendToBody')?.value.trim();
+  const btn    = document.getElementById('sendToBtn');
+  const result = document.getElementById('sendToResult');
+
+  if (!toRaw)  { alert('Enter at least one recipient email address.'); return; }
+  if (!subj)   { alert('Enter a subject line.'); return; }
+  if (!body)   { alert('Enter a message body.'); return; }
+
+  // Parse comma/newline separated emails
+  const emails = toRaw.split(/[,\n]/).map(e => e.trim()).filter(e => e.includes('@'));
+  if (!emails.length) { alert('No valid email addresses found. Make sure they contain @'); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="msymbol text-lg">hourglass_empty</span>Sending…';
+  result.className = 'text-sm p-2.5 rounded-xl flex-1 flex items-start gap-2 bg-blue-50 text-blue-700';
+  result.innerHTML = `<span class="msymbol">hourglass_empty</span> Sending to ${emails.length} recipient(s)…`;
+  result.classList.remove('hidden');
+
+  try {
+    const gu = document.getElementById('gmail_address')?.value.trim();
+    const gp = document.getElementById('gmail_app_password')?.value.trim();
+
+    const res  = await fetch('/api/send-email', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ to: emails, subject: subj, body: body })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      result.className = 'text-sm p-2.5 rounded-xl flex-1 flex items-start gap-2 bg-green-50 text-green-700';
+      result.innerHTML = `<span class="msymbol text-lg">check_circle</span><span style="white-space:pre-wrap">${data.message}</span>`;
+      // Clear form on success
+      document.getElementById('sendToEmails').value = '';
+      document.getElementById('sendToSubject').value = '';
+      document.getElementById('sendToBody').value = '';
+    } else {
+      result.className = 'text-sm p-2.5 rounded-xl flex-1 flex items-start gap-2 bg-red-50 text-red-700';
+      result.innerHTML = `<span class="msymbol text-lg">error</span><span style="white-space:pre-wrap">${data.message}</span>`;
+    }
+
+    // Show per-recipient results if available
+    if (data.results && Object.keys(data.results).length > 1) {
+      const rows = Object.entries(data.results).map(([email, status]) =>
+        `<div class="flex items-center gap-2 mt-1"><span class="text-xs font-mono">${email}</span><span class="text-xs">${status}</span></div>`
+      ).join('');
+      result.innerHTML += rows;
+    }
+  } catch(e) {
+    result.className = 'text-sm p-2.5 rounded-xl flex-1 flex items-start gap-2 bg-red-50 text-red-700';
+    result.innerHTML = '<span class="msymbol">error</span> Network error — check your connection.';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span class="msymbol text-lg">send</span> Send Email Now';
+  }
+}
+
+
+// Initialize on load
+document.addEventListener('DOMContentLoaded', () => {
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}{% for cat, msg in messages %}
+  if ('{{ cat }}' === 'success') {
+    const ss = document.getElementById('saveStatus');
+    if (ss) { ss.classList.remove('hidden'); setTimeout(() => ss.classList.add('hidden'), 3000); }
+    // Sync theme to localStorage after save
+    const themeInput = document.querySelector('input[name="theme"]:checked');
+    if (themeInput) {
+      const themeVal = themeInput.value;
+      localStorage.setItem('meetflow_theme', themeVal);
+      if (themeVal === 'dark' || (themeVal === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
+  }
+  {% endfor %}{% endif %}
+  {% endwith %}
+
+  // Apply theme change live when radio is clicked
+  document.querySelectorAll('input[name="theme"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+      const t = this.value;
+      localStorage.setItem('meetflow_theme', t);
+      if (t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    });
+  });
+
+  // Auto-check integration status on load if on integrations tab
+  const urlHash = window.location.hash;
+  if (urlHash === '#integrations') {
+    showTab('integrations');
+  } else if (urlHash === '#tab-gmail' || urlHash === '#gmail') {
+    showTab('gmail');
+  } else if (urlHash) {
+    // try to show tab matching hash
+    const hashTab = urlHash.replace('#','').replace('tab-','');
+    const tabEl = document.getElementById('tab-' + hashTab);
+    if (tabEl) showTab(hashTab);
+  }
+  // Always preload integration status in background
+  setTimeout(checkIntegrationStatus, 500);
+
+  // Avatar upload handler
+  const avatarInput = document.getElementById('avatarInput');
+  if (avatarInput) {
+    avatarInput.addEventListener('change', async function() {
+      const file = this.files[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append('avatar', file);
+      const btn = document.getElementById('avatarUploadBtn');
+      if (btn) btn.textContent = 'Uploading…';
+      try {
+        const res = await fetch('/settings/upload-avatar', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.success) {
+          document.querySelectorAll('.user-avatar-img').forEach(img => { img.src = data.url + '?t=' + Date.now(); });
+          alert('✅ Profile picture updated!');
+        } else {
+          alert('❌ Upload failed: ' + data.message);
+        }
+      } catch(e) {
+        alert('❌ Upload error: ' + e.message);
+      }
+      if (btn) btn.textContent = 'Change Photo';
+    });
+  }
+});
+</script>
+{% endblock %}

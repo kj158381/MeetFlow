@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Tasks — MeetFlow{% endblock %}
+
+{% block content %}
+<div class="flex-1 overflow-y-auto">
+    <div class="sticky top-0 bg-white border-b border-slate-200 z-10 px-8 py-4 flex items-center justify-between">
+        <div>
+            <h1 class="font-display font-bold text-slate-900 text-xl">My Tasks</h1>
+            <p class="text-sm text-slate-500">Action items from meetings</p>
+        </div>
+        <button onclick="openNewTaskModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-all shadow-sm shadow-primary/20">
+            <span class="msymbol text-xl">add</span>
+            Add Task
+        </button>
+    </div>
+
+    <div class="p-8">
+        <!-- Filter tabs -->
+        <div class="flex items-center gap-2 mb-6">
+            {% for status, label in [('all','All'), ('todo','To Do'), ('in_progress','In Progress'), ('done','Done')] %}
+            <button onclick="filterTasks('{{ status }}')"
+                class="filter-btn px-4 py-2 rounded-xl text-sm font-semibold transition-all {{ 'bg-primary text-white shadow-sm' if status == 'all' else 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50' }}"
+                data-filter="{{ status }}">{{ label }}</button>
+            {% endfor %}
+        </div>
+
+        {% if tasks %}
+        <div class="space-y-3" id="tasksList">
+            {% for task in tasks %}
+            <div class="task-item bg-white rounded-2xl border border-slate-200 p-5 hover:shadow-sm transition-shadow flex items-start gap-4"
+                data-status="{{ task.status }}">
+                <button onclick="toggleTask('{{ task.id }}', '{{ task.status }}')"
+                    class="size-6 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all
+                    {{ 'border-green-400 bg-green-400' if task.status == 'done' else 'border-slate-300 hover:border-primary' }}">
+                    {% if task.status == 'done' %}
+                    <span class="msymbol text-white" style="font-size:14px">check</span>
+                    {% endif %}
+                </button>
+                <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-slate-900 {{ 'line-through text-slate-400' if task.status == 'done' else '' }}">{{ task.title }}</p>
+                    {% if task.description %}
+                    <p class="text-sm text-slate-500 mt-1">{{ task.description }}</p>
+                    {% endif %}
+                    <div class="flex items-center gap-3 mt-2">
+                        {% if task.due_date %}
+                        <span class="flex items-center gap-1 text-xs text-slate-400">
+                            <span class="msymbol text-base">schedule</span>
+                            {{ task.due_date }}
+                        </span>
+                        {% endif %}
+                        <span class="text-xs px-2.5 py-1 rounded-full font-semibold
+                            {% if task.priority == 'high' %}bg-red-100 text-red-600
+                            {% elif task.priority == 'medium' %}bg-amber-100 text-amber-600
+                            {% else %}bg-slate-100 text-slate-600{% endif %}">
+                            {{ task.priority|capitalize }} Priority
+                        </span>
+                    </div>
+                </div>
+                <button onclick="deleteTask('{{ task.id }}')" class="text-slate-300 hover:text-red-400 transition-colors">
+                    <span class="msymbol text-xl">delete</span>
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-20">
+            <div class="size-20 rounded-3xl bg-amber-50 flex items-center justify-center mx-auto mb-5">
+                <span class="msymbol msymbol-fill text-amber-400 text-4xl">task_alt</span>
+            </div>
+            <h2 class="font-display font-bold text-slate-900 text-xl mb-2">No Tasks Yet</h2>
+            <p class="text-slate-500 mb-6 max-w-sm mx-auto">Tasks are created from meeting action items or manually added here.</p>
+            <button onclick="openNewTaskModal()" class="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-blue-700 transition-all">
+                <span class="msymbol text-xl">add</span>
+                Add First Task
+            </button>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- New Task Modal -->
+<div id="taskModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="font-display font-bold text-slate-900 text-lg">New Task</h2>
+            <button onclick="closeTaskModal()" class="text-slate-400 hover:text-slate-600">
+                <span class="msymbol text-2xl">close</span>
+            </button>
+        </div>
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Task Title *</label>
+                <input type="text" id="taskTitle" class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Follow up with design team"/>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Description</label>
+                <textarea id="taskDesc" rows="2" class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none" placeholder="Optional details..."></textarea>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1.5">Priority</label>
+                    <select id="taskPriority" class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary">
+                        <option value="low">Low</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1.5">Due Date</label>
+                    <input type="date" id="taskDue" class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary"/>
+                </div>
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button onclick="closeTaskModal()" class="flex-1 py-3 border border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50">Cancel</button>
+                <button onclick="createTask()" class="flex-1 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-blue-700 shadow-sm shadow-primary/20">Create Task</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function openNewTaskModal() { document.getElementById('taskModal').classList.remove('hidden'); }
+function closeTaskModal() { document.getElementById('taskModal').classList.add('hidden'); }
+
+async function createTask() {
+    const title = document.getElementById('taskTitle').value.trim();
+    if (!title) return showToast('Please enter a task title', 'warning');
+    const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+            title,
+            description: document.getElementById('taskDesc').value,
+            priority: document.getElementById('taskPriority').value,
+            due_date: document.getElementById('taskDue').value || null
+        })
+    });
+    if (res.ok) { showToast('Task created!', 'task_alt'); setTimeout(() => location.reload(), 800); }
+}
+
+async function toggleTask(id, currentStatus) {
+    const newStatus = currentStatus === 'done' ? 'todo' : 'done';
+    await fetch(`/api/tasks/${id}`, {
+        method: 'PUT',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({status: newStatus, title: '', description: '', priority: 'medium'})
+    });
+    location.reload();
+}
+
+function filterTasks(status) {
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        const isActive = btn.dataset.filter === status;
+        btn.className = `filter-btn px-4 py-2 rounded-xl text-sm font-semibold transition-all ${isActive ? 'bg-primary text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`;
+    });
+    document.querySelectorAll('.task-item').forEach(item => {
+        const matches = status === 'all' || item.dataset.status === status;
+        item.style.display = matches ? '' : 'none';
+    });
+}
+
+async function deleteTask(id) {
+    // We'll just mark as done since we don't have a delete endpoint, or you can add one
+    showToast('Use complete to remove tasks', 'info');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Error {{ code }} — MeetFlow{% endblock %}
+{% block content %}
+<div class="flex-1 flex items-center justify-center p-8" style="background:#f6f6f8">
+  <div class="text-center max-w-md">
+    <div class="size-20 rounded-3xl bg-red-50 flex items-center justify-center mx-auto mb-6">
+      <span class="msymbol text-red-500" style="font-size:40px">error</span>
+    </div>
+    <h1 class="font-display font-bold text-slate-900 text-4xl mb-2">{{ code }}</h1>
+    <p class="text-slate-500 text-lg mb-8">{{ message }}</p>
+    <div class="flex items-center justify-center gap-3">
+      <a href="{{ url_for('dashboard') }}" class="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-white font-semibold text-sm hover:bg-primary-dark transition-all shadow-sm shadow-primary/20">
+        <span class="msymbol text-lg">home</span> Back to Dashboard
+      </a>
+      <button onclick="history.back()" class="flex items-center gap-2 px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 transition-all">
+        <span class="msymbol text-lg">arrow_back</span> Go Back
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>{{ meeting.title }} — MeetFlow Live</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<style>
+:root{--primary:#135bec;--pd:#0e46c0}
+body{font-family:'DM Sans',sans-serif;background:#080e1a;color:#fff;overflow:hidden;height:100vh}
+.ms{font-family:'Material Symbols Outlined';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;font-size:22px;display:inline-block;line-height:1;vertical-align:middle;user-select:none}
+.msf{font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#1e2d45;border-radius:10px}
+.ctrl{display:flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:14px;transition:all .2s;cursor:pointer;border:none;color:#fff}
+.ctrl-default{background:rgba(255,255,255,.1)}
+.ctrl-default:hover{background:rgba(255,255,255,.18)}
+.ctrl-danger{background:#ef4444!important}
+.ctrl-active{background:var(--primary)!important}
+#localVideo{object-fit:cover;transform:scaleX(-1)}
+.side-panel{display:none;flex-direction:column;flex:1;overflow:hidden;min-height:0}
+.side-panel.active{display:flex}
+.sidebar-tab{flex:1;padding:7px 4px;font-size:11px;font-weight:600;border-radius:8px;transition:all .2s;background:transparent;color:#64748b;cursor:pointer;border:none;white-space:nowrap}
+.sidebar-tab.active{background:rgba(255,255,255,.1);color:#fff}
+.kp-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;text-transform:capitalize;white-space:nowrap}
+.kp-decision{background:#1e3a5f;color:#60a5fa}
+.kp-action{background:#14402f;color:#4ade80}
+.kp-deadline{background:#3b1a1a;color:#f87171}
+.kp-follow_up{background:#2d1f3d;color:#c084fc}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.fade-up{animation:fadeUp .3s ease forwards}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.rec-dot{width:8px;height:8px;border-radius:50%;background:#ef4444;display:inline-block;animation:blink 1.2s ease infinite;flex-shrink:0}
+.lang-chip{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#94a3b8;transition:all .15s}
+.lang-chip:hover,.lang-chip.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.toast-notif{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:10px 18px;background:rgba(8,14,26,.95);border:1px solid rgba(255,255,255,.1);color:#fff;border-radius:14px;font-size:13px;font-weight:500;box-shadow:0 8px 32px rgba(0,0,0,.5);z-index:9999;backdrop-filter:blur(12px);pointer-events:none}
+.sub-overlay{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.78);color:#fff;padding:8px 20px;border-radius:10px;font-size:14px;text-align:center;min-width:280px;max-width:80%;pointer-events:none;backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.1);z-index:10}
+@keyframes riseHand{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.raise-anim{animation:riseHand .7s ease infinite}
+</style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+<!-- TOP BAR -->
+<header class="flex items-center justify-between h-14 px-5 shrink-0 z-30" style="background:rgba(8,14,26,.95);border-bottom:1px solid rgba(255,255,255,.07);backdrop-filter:blur(12px)">
+  <div class="flex items-center gap-3">
+    <div class="size-8 rounded-lg flex items-center justify-center" style="background:var(--primary)">
+      <span class="ms msf text-white" style="font-size:18px">videocam</span>
+    </div>
+    <div>
+      <p class="font-semibold text-white text-sm leading-none">{{ meeting.title }}</p>
+      <div class="flex items-center gap-2 mt-0.5">
+        <div class="rec-dot"></div>
+        <span class="text-xs text-slate-400" id="timer">Live • 00:00</span>
+        <span class="text-slate-600 text-xs">•</span>
+        <span class="text-xs text-slate-400"><span id="participantCount">1</span> participant(s) • <span id="liveParticipantBadge" style="color:#4ade80">just you</span></span>
+      </div>
+    </div>
+  </div>
+  <div class="hidden md:flex items-center gap-2">
+    <span class="px-2.5 py-1 rounded-lg text-xs font-medium" style="background:rgba(255,255,255,.06);color:#94a3b8">HD 720p</span>
+    {% if settings.feat_live_translation %}
+    <span class="px-2.5 py-1 rounded-lg text-xs font-medium" style="background:rgba(19,91,236,.2);color:#60a5fa;border:1px solid rgba(19,91,236,.3)">
+      <span class="ms" style="font-size:14px">translate</span> Translation
+    </span>
+    {% endif %}
+  </div>
+  <div class="flex items-center gap-2">
+    <button onclick="copyLink()" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-80" style="background:rgba(255,255,255,.08);color:#94a3b8">
+      <span class="ms" style="font-size:16px">link</span>Copy Link
+    </button>
+    <button onclick="openInvite()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold" style="background:rgba(19,91,236,.25);border:1px solid rgba(19,91,236,.4);color:#60a5fa">
+      <span class="ms" style="font-size:16px">person_add</span>Invite
+    </button>
+    <button onclick="endMeeting()" class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-white" style="background:#ef4444">
+      <span class="ms" style="font-size:18px">call_end</span>End
+    </button>
+  </div>
+</header>
+
+<!-- MAIN -->
+<div class="flex flex-1 min-h-0 overflow-hidden">
+
+  <!-- VIDEO COLUMN -->
+  <div class="flex-1 flex flex-col overflow-hidden">
+    <!-- Video grid -->
+    <div class="flex-1 grid gap-2 p-3 min-h-0" style="grid-template-columns:1fr 1fr">
+      <!-- Local tile -->
+      <div class="relative rounded-2xl overflow-hidden group" style="background:#111827;min-height:160px" id="localTile">
+        <video id="localVideo" class="w-full h-full" autoplay muted playsinline></video>
+        <div id="videoOffBg" class="hidden absolute inset-0 flex items-center justify-center" style="background:linear-gradient(135deg,#1a2235,#0d1424)">
+          <div class="text-center">
+            <div class="size-14 rounded-full flex items-center justify-center mx-auto mb-2 text-xl font-bold" style="background:rgba(19,91,236,.3)">{{ user.name[0].upper() }}</div>
+            <p class="text-xs" style="color:#475569">Camera off</p>
+          </div>
+        </div>
+        <div class="absolute bottom-3 left-3 flex items-center gap-2 px-2.5 py-1.5 rounded-lg" style="background:rgba(0,0,0,.6);backdrop-filter:blur(6px)">
+          <span class="ms text-white" id="micStatusIcon" style="font-size:16px">mic</span>
+          <span class="text-white text-xs font-medium">{{ user.name }} (You)</span>
+        </div>
+        <div id="handBadge" class="hidden absolute top-3 right-3 text-2xl raise-anim">✋</div>
+      </div>
+      <!-- ✅ FIX: Remote peers — populated dynamically by webrtc_room.js -->
+      <div id="remotePeersContainer" class="relative rounded-2xl overflow-hidden flex flex-wrap items-center justify-center gap-2 p-2" style="background:#111827;min-height:160px">
+        <div class="text-center" id="waitingForOthers">
+          <div class="size-14 rounded-full mx-auto mb-3 flex items-center justify-center" style="background:rgba(255,255,255,.04)">
+            <span class="ms" style="color:#334155;font-size:30px">person_add</span>
+          </div>
+          <p class="text-xs" style="color:#475569">Waiting for others…</p>
+          <button onclick="openInvite()" class="mt-3 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold mx-auto transition-all" style="background:rgba(19,91,236,.18);color:#60a5fa;border:1px solid rgba(19,91,236,.25)">
+            <span class="ms" style="font-size:16px">mail</span>Invite
+          </button>
+        </div>
+        <!-- Subtitle overlay -->
+        <div id="subOverlay" class="sub-overlay hidden"></div>
+      </div>
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="shrink-0 flex items-center justify-center gap-2 py-3 px-6" style="background:rgba(8,14,26,.95);border-top:1px solid rgba(255,255,255,.07)">
+      <!-- Mic button with label -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+        <button id="micBtn" onclick="toggleMic()" class="ctrl ctrl-default" title="Mute/Unmute" style="position:relative">
+          <span class="ms" id="micIcon">mic</span>
+        </button>
+        <span id="micLabel" style="font-size:9px;color:#64748b;font-weight:600">Mute</span>
+      </div>
+      <!-- Camera button with label -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+        <button id="camBtn" onclick="toggleCamera()" class="ctrl ctrl-default" title="Camera On/Off" style="position:relative">
+          <span class="ms" id="camIcon">videocam</span>
+        </button>
+        <span id="camLabel" style="font-size:9px;color:#64748b;font-weight:600">Camera</span>
+      </div>
+      <button id="shareBtn" onclick="toggleShare()" class="ctrl ctrl-default" title="Share Screen"><span class="ms" id="shareIcon">present_to_all</span></button>
+      <button id="handBtn" onclick="toggleHand()" class="ctrl ctrl-default" title="Raise Hand"><span class="ms" id="handIcon">back_hand</span></button>
+      <div style="width:1px;height:32px;background:rgba(255,255,255,.08);margin:0 4px"></div>
+      <!-- Translation toggle -->
+      <button id="transBtn" onclick="toggleTranslation()" class="ctrl ctrl-default" title="Live Translation">
+        <span class="ms" id="transIcon">translate</span>
+        <span id="transDot" class="hidden" style="position:absolute;top:2px;right:2px;width:8px;height:8px;border-radius:50%;background:#3b82f6;border:2px solid #080e1a"></span>
+      </button>
+      <select id="langSel" onchange="setLang(this.value)" class="hidden text-xs rounded-lg px-2 py-1.5 outline-none" style="background:#1a2235;border:1px solid rgba(255,255,255,.1);color:#fff;font-size:11px">
+        <option value="es">🇪🇸 Spanish</option><option value="fr">🇫🇷 French</option><option value="de">🇩🇪 German</option>
+        <option value="hi">🇮🇳 Hindi</option><option value="zh">🇨🇳 Chinese</option><option value="ja">🇯🇵 Japanese</option>
+        <option value="ar">🇸🇦 Arabic</option><option value="pt">🇧🇷 Portuguese</option><option value="ru">🇷🇺 Russian</option>
+        <option value="ko">🇰🇷 Korean</option><option value="ta">🇮🇳 Tamil</option>
+      </select>
+      <div style="width:1px;height:32px;background:rgba(255,255,255,.08);margin:0 4px"></div>
+      <button onclick="saveNotes()" class="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm text-white" style="background:var(--primary);box-shadow:0 4px 20px rgba(19,91,236,.35)">
+        <span class="ms msf" style="font-size:18px">note_add</span><span class="hidden sm:block">Save Notes</span>
+      </button>
+      <div style="width:1px;height:32px;background:rgba(255,255,255,.08);margin:0 4px"></div>
+      <div class="relative">
+        <button id="moreBtn" onclick="document.getElementById('moreMenu').classList.toggle('hidden')" class="ctrl ctrl-default"><span class="ms">more_vert</span></button>
+        <div id="moreMenu" class="hidden absolute bottom-14 right-0 rounded-2xl overflow-hidden z-50" style="background:#111827;border:1px solid rgba(255,255,255,.1);box-shadow:0 8px 32px rgba(0,0,0,.6);min-width:190px">
+          <button onclick="takeScreenshot();document.getElementById('moreMenu').classList.add('hidden')" class="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-white/5 transition-colors" style="color:#94a3b8"><span class="ms" style="font-size:18px">screenshot</span>Screenshot</button>
+          <button onclick="document.documentElement.requestFullscreen?.();document.getElementById('moreMenu').classList.add('hidden')" class="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-white/5 transition-colors" style="color:#94a3b8"><span class="ms" style="font-size:18px">fullscreen</span>Fullscreen</button>
+          <button onclick="openInvite();document.getElementById('moreMenu').classList.add('hidden')" class="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-white/5 transition-colors" style="color:#94a3b8"><span class="ms" style="font-size:18px">mail</span>Email Invite</button>
+          <div style="height:1px;background:rgba(255,255,255,.06)"></div>
+          <button onclick="endMeeting()" class="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-red-500/10 transition-colors" style="color:#f87171"><span class="ms" style="font-size:18px">call_end</span>End Meeting</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <aside class="flex flex-col shrink-0" style="width:350px;background:#0d1320;border-left:1px solid rgba(255,255,255,.07)">
+    <div class="shrink-0 p-2.5" style="border-bottom:1px solid rgba(255,255,255,.07)">
+      <div class="flex gap-1 p-1 rounded-xl" style="background:rgba(255,255,255,.04)">
+        <button class="sidebar-tab active" id="tabAI" onclick="sideTab('ai')">🤖 AI</button>
+        <button class="sidebar-tab" id="tabLive" onclick="sideTab('live')">📝 Live</button>
+        <button class="sidebar-tab" id="tabTrans" onclick="sideTab('trans')">🌐 Translate</button>
+        <button class="sidebar-tab" id="tabChat" onclick="sideTab('chat')">💬 Chat</button>
+      </div>
+    </div>
+
+    <!-- AI HUB -->
+    <div id="pAI" class="side-panel active overflow-y-auto p-3 space-y-3">
+      <div class="rounded-xl p-3 flex items-center gap-3" style="background:rgba(19,91,236,.12);border:1px solid rgba(19,91,236,.25)">
+        <span class="ms msf text-blue-400 text-2xl" style="animation:pulse 2s infinite">auto_awesome</span>
+        <div class="flex-1"><p class="text-sm font-semibold">AI Active</p><p class="text-xs" style="color:#64748b">Capturing key points live</p></div>
+        <div class="flex items-center gap-1.5"><div class="rec-dot"></div><span class="text-xs text-green-400 font-medium">Live</span></div>
+      </div>
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5" style="color:#cbd5e1">
+            <span class="ms text-blue-400" style="font-size:16px">emoji_objects</span>
+            Key Points <span id="kpCount" class="ml-1 px-1.5 py-0.5 rounded-full text-xs font-bold" style="background:rgba(19,91,236,.3);color:#60a5fa">0</span>
+          </h3>
+          <button onclick="addKP()" class="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"><span class="ms" style="font-size:14px">add</span>Add</button>
+        </div>
+        <div id="kpList" class="space-y-2">
+          <div id="kpEmpty" class="text-center py-5"><span class="ms" style="color:#1e3a5f;font-size:32px">auto_awesome</span><p class="text-xs mt-2" style="color:#475569">AI will capture key points</p></div>
+        </div>
+      </div>
+      <div class="space-y-2">
+        <label class="text-xs font-semibold uppercase tracking-wider block" style="color:#64748b">Transcript Input</label>
+        <textarea id="transcriptInput" rows="4" class="w-full text-sm placeholder-slate-500 p-3 resize-none focus:outline-none rounded-xl" style="background:#1a2235;border:1px solid rgba(255,255,255,.08);color:#e2e8f0" placeholder="Paste transcript or type meeting discussion…"></textarea>
+        <button onclick="extractKP()" class="w-full py-2.5 text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-all" style="background:rgba(19,91,236,.2);color:#60a5fa;border:1px solid rgba(19,91,236,.3)">
+          <span class="ms" style="font-size:18px">psychology</span>Extract Key Points
+        </button>
+      </div>
+      <div id="summarySection" class="hidden rounded-xl p-3" style="background:#1a2235;border:1px solid rgba(255,255,255,.08)">
+        <h3 class="text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5" style="color:#cbd5e1">
+          <span class="ms" style="font-size:16px;color:#a78bfa">summarize</span>AI Summary
+        </h3>
+        <p class="text-xs leading-relaxed" id="summaryText" style="color:#94a3b8"></p>
+        <button onclick="transSummary()" class="mt-2 lang-chip text-xs">
+          <span class="ms" style="font-size:14px">translate</span>Translate
+        </button>
+        <p id="transSummaryOut" class="hidden mt-2 text-xs leading-relaxed" style="color:#60a5fa"></p>
+      </div>
+    </div>
+
+    <!-- LIVE TRANSCRIPT -->
+    <div id="pLive" class="side-panel overflow-y-auto p-3 space-y-3">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xs font-bold uppercase tracking-wider" style="color:#cbd5e1">Live Transcript</h3>
+        <button onclick="document.getElementById('liveFeed').innerHTML='<div class=\'text-center py-6\'><span class=\'ms\' style=\'color:#1e3a5f;font-size:30px\'>mic</span><p class=\'text-xs mt-2\' style=\'color:#475569\'>Cleared</p></div>'" class="text-xs" style="color:#475569">Clear</button>
+      </div>
+      <div id="liveFeed" class="space-y-2">
+        <div class="text-center py-6"><span class="ms" style="color:#1e3a5f;font-size:30px">mic</span><p class="text-xs mt-2" style="color:#475569">Transcript appears here</p></div>
+      </div>
+      <div class="flex gap-2 pt-2" style="border-top:1px solid rgba(255,255,255,.07)">
+        <input id="liveInput" type="text" placeholder="Simulate speech…" class="flex-1 text-xs px-3 py-2 rounded-xl focus:outline-none" style="background:#1a2235;border:1px solid rgba(255,255,255,.08);color:#e2e8f0" onkeydown="if(event.key==='Enter')addLiveLine()"/>
+        <button onclick="addLiveLine()" class="size-8 rounded-xl flex items-center justify-center" style="background:var(--primary)"><span class="ms text-white" style="font-size:16px">send</span></button>
+      </div>
+    </div>
+
+    <!-- TRANSLATION -->
+    <div id="pTrans" class="side-panel overflow-y-auto p-3 space-y-3">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5" style="color:#cbd5e1"><span class="ms" style="font-size:16px;color:#60a5fa">translate</span>Live Translation</h3>
+        <button id="transToggleBtn" onclick="toggleTranslation()" class="lang-chip text-xs px-3 py-1.5">
+          <span class="ms" style="font-size:14px" id="transToggleIco">play_arrow</span><span id="transToggleLabel">Start</span>
+        </button>
+      </div>
+      <!-- Language chips -->
+      <div class="rounded-xl p-3" style="background:#1a2235;border:1px solid rgba(255,255,255,.08)">
+        <label class="text-xs block mb-2" style="color:#64748b">Translate meeting to:</label>
+        <div class="flex flex-wrap gap-1.5 mb-2" id="langChips">
+          {% for code, flag, label in [('es','🇪🇸','ES'),('fr','🇫🇷','FR'),('de','🇩🇪','DE'),('hi','🇮🇳','HI'),('zh','🇨🇳','ZH'),('ja','🇯🇵','JA'),('ar','🇸🇦','AR'),('pt','🇧🇷','PT'),('ru','🇷🇺','RU'),('ko','🇰🇷','KO'),('ta','🇮🇳','TA')] %}
+          <button class="lang-chip {% if settings.translation_language == code %}active{% endif %}" data-lang="{{ code }}" onclick="setLang('{{ code }}')">{{ flag }} {{ label }}</button>
+          {% endfor %}
+        </div>
+        <p class="text-xs" id="transStatusLabel" style="color:#475569">Ready</p>
+      </div>
+      <!-- Translate input -->
+      <div class="space-y-2">
+        <textarea id="transInp" rows="3" class="w-full text-xs placeholder-slate-500 p-3 resize-none focus:outline-none rounded-xl" style="background:#1a2235;border:1px solid rgba(255,255,255,.08);color:#e2e8f0" placeholder="Type text to translate…"></textarea>
+        <button onclick="doTranslate()" class="w-full py-2.5 text-sm font-semibold rounded-xl flex items-center justify-center gap-2" style="background:rgba(19,91,236,.2);color:#60a5fa;border:1px solid rgba(19,91,236,.3)">
+          <span class="ms" style="font-size:18px">translate</span>Translate Now
+        </button>
+      </div>
+      <!-- Output -->
+      <div id="transOut" class="hidden rounded-xl p-3" style="background:rgba(19,91,236,.1);border:1px solid rgba(19,91,236,.3)">
+        <p class="text-xs font-bold mb-1" id="transOutLabel" style="color:#60a5fa">Translation</p>
+        <p class="text-xs leading-relaxed" id="transOutText" style="color:#e2e8f0"></p>
+        <button onclick="navigator.clipboard?.writeText(document.getElementById('transOutText').textContent).then(()=>toast('Copied!','content_copy'))" class="mt-2 text-xs flex items-center gap-1" style="color:#475569">
+          <span class="ms" style="font-size:14px">content_copy</span>Copy
+        </button>
+      </div>
+      <!-- History -->
+      <div id="transHist" class="space-y-2"></div>
+    </div>
+
+    <!-- CHAT -->
+    <div id="pChat" class="side-panel">
+      <div class="flex-1 overflow-y-auto p-3 space-y-2" id="chatFeed" style="min-height:0">
+        <div class="text-center py-6"><span class="ms" style="color:#1e3a5f;font-size:30px">chat</span><p class="text-xs mt-2" style="color:#475569">In-meeting chat</p></div>
+      </div>
+      <div class="shrink-0 p-3" style="border-top:1px solid rgba(255,255,255,.07)">
+        <div class="flex gap-2 items-center">
+          <button onclick="document.getElementById('chatIn').value+='👍'" class="text-lg leading-none" title="👍">👍</button>
+          <button onclick="document.getElementById('chatIn').value+='👏'" class="text-lg leading-none" title="👏">👏</button>
+          <input id="chatIn" type="text" placeholder="Message…" class="flex-1 text-xs px-3 py-2.5 rounded-xl focus:outline-none" style="background:#1a2235;border:1px solid rgba(255,255,255,.08);color:#e2e8f0" onkeydown="if(event.key==='Enter')sendChat()"/>
+          <button onclick="sendChat()" class="size-9 rounded-xl flex items-center justify-center shrink-0" style="background:var(--primary)"><span class="ms text-white" style="font-size:16px">send</span></button>
+        </div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- INVITE MODAL -->
+<div id="inviteModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(0,0,0,.75);backdrop-filter:blur(8px)">
+  <div class="rounded-3xl p-6 w-full max-w-md" style="background:#0d1320;border:1px solid rgba(255,255,255,.1);box-shadow:0 24px 64px rgba(0,0,0,.6)">
+    <div class="flex items-center gap-3 mb-5">
+      <div class="size-10 rounded-xl flex items-center justify-center" style="background:rgba(19,91,236,.2)"><span class="ms msf text-blue-400 text-xl">mail</span></div>
+      <div><h2 class="font-bold text-white text-base">Invite Participants</h2><p class="text-xs" style="color:#64748b">Send meeting link via email — works for Gmail, Outlook, any provider</p></div>
+      <button onclick="closeInvite()" class="ml-auto ms text-2xl" style="color:#475569">close</button>
+    </div>
+    <div class="rounded-xl p-3 mb-4 flex items-center gap-3" style="background:#1a2235;border:1px solid rgba(255,255,255,.08)">
+      <span class="ms" style="color:#64748b;font-size:16px">link</span>
+      <p class="text-xs truncate flex-1" style="color:#64748b" id="linkDisplay">{{ request.url }}</p>
+      <button onclick="copyLink()" class="text-xs font-semibold" style="color:#60a5fa">Copy</button>
+    </div>
+    <div class="space-y-3">
+      <div>
+        <p class="text-xs mb-1" style="color:#94a3b8">Recipient emails (one per line or comma-separated)</p>
+        <textarea id="inviteEmails" rows="4" class="w-full text-sm placeholder-slate-500 p-3 resize-none focus:outline-none rounded-xl"
+          style="background:#1a2235;border:1px solid rgba(255,255,255,.08);color:#e2e8f0"
+          placeholder="alice@gmail.com&#10;bob@company.com&#10;carol@outlook.com"></textarea>
+      </div>
+      <div id="gmailStatusBar" class="rounded-lg px-3 py-2 flex items-center gap-2 text-xs" style="background:rgba(255,255,255,.04)">
+        <span class="ms" id="gmailIco" style="font-size:16px">hourglass_top</span><span id="gmailMsg" style="color:#94a3b8">Checking…</span>
+      </div>
+      <!-- Result area after sending -->
+      <div id="inviteResultArea" class="hidden rounded-xl p-3 text-xs" style="background:#1a2235;border:1px solid rgba(255,255,255,.08)">
+        <p id="inviteResultMsg" style="color:#e2e8f0;margin-bottom:6px;font-weight:600"></p>
+        <div id="inviteResultDetails" style="color:#94a3b8"></div>
+      </div>
+      <div class="flex gap-3">
+        <button onclick="closeInvite()" class="flex-1 py-3 rounded-xl text-sm font-semibold" style="border:1px solid rgba(255,255,255,.1);color:#64748b">Cancel</button>
+        <button onclick="sendInvites()" id="sendInviteBtn" class="flex-1 py-3 rounded-xl text-sm font-bold text-white" style="background:#059669">
+          <span id="sendInviteBtnText">Send Invites</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- END MODAL -->
+<div id="endModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(0,0,0,.8);backdrop-filter:blur(8px)">
+  <div class="rounded-3xl p-6 w-full max-w-sm text-center" style="background:#0d1320;border:1px solid rgba(255,255,255,.1)">
+    <div class="size-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style="background:rgba(239,68,68,.15)">
+      <span class="ms msf text-red-400 text-3xl">call_end</span>
+    </div>
+    <h2 class="font-bold text-white text-lg mb-1">End Meeting?</h2>
+    <p class="text-xs mb-5" style="color:#64748b">AI notes will be saved automatically.</p>
+    <div class="flex gap-3">
+      <button onclick="document.getElementById('endModal').classList.add('hidden')" class="flex-1 py-3 rounded-xl text-sm font-semibold" style="border:1px solid rgba(255,255,255,.1);color:#64748b">Stay</button>
+      <button onclick="confirmEnd()" class="flex-1 py-3 rounded-xl text-sm font-bold text-white" style="background:#ef4444">End & Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ✅ FIX: Real-time multi-user room via SocketIO + WebRTC -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
+<script src="{{ url_for('static', filename='js/webrtc_room.js') }}"></script>
+<script>
+const MEETING_ID    = "{{ meeting.id }}";
+const MEETING_TITLE = "{{ meeting.title | e }}";
+const MEETING_TIME  = "{{ meeting.scheduled_at or '' }}";
+const USER_NAME     = "{{ user.name | e }}";
+const TRANS_ON_INIT = {{ 'true' if settings.feat_live_translation else 'false' }};
+const TRANSLATE_API_ENABLED = {{ 'true' if translate_api_enabled else 'false' }};
+const AI_ENABLED = {{ 'true' if ai_enabled else 'false' }};
+let   INIT_LANG     = "{{ settings.translation_language or 'es' }}";
+
+const S = {
+  muted:false, camOff:false, sharing:false, handUp:false, translating:false,
+  lang: INIT_LANG, localStream:null, screenStream:null,
+  kps:[], secs:0, timer:null, transHist:[], autoTransTimer:null
+};
+
+// MEDIA
+async function initMedia(){
+  try{
+    S.localStream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+    document.getElementById('localVideo').srcObject = S.localStream;
+    toast('Camera & mic connected','videocam');
+  }catch(e){
+    document.getElementById('videoOffBg').classList.remove('hidden');
+    document.getElementById('localVideo').style.display='none';
+    toast('No camera/mic — continuing','videocam_off');
+  }
+  // ✅ FIX: Join shared meeting room — connects this user with all other participants
+  initRoom(MEETING_ID, USER_NAME, S.localStream);
+
+  // Override updateParticipantCount to also hide/show waiting placeholder
+  const _origUpdate = updateParticipantCount;
+  window.updateParticipantCount = function() {
+    _origUpdate();
+    const peerCount = Object.keys(window._peers || {}).length;
+    const waiting = document.getElementById('waitingForOthers');
+    if (waiting) waiting.style.display = peerCount > 0 ? 'none' : 'block';
+  };
+}
+
+function toggleMic(){
+  S.muted=!S.muted;
+  if(S.localStream) S.localStream.getAudioTracks().forEach(t=>t.enabled=!S.muted);
+  const b=document.getElementById('micBtn'),i=document.getElementById('micIcon'),lbl=document.getElementById('micLabel');
+  if(S.muted){b.className='ctrl ctrl-danger';i.textContent='mic_off';if(lbl){lbl.textContent='Unmute';lbl.style.color='#f87171';}}
+  else{b.className='ctrl ctrl-default';i.textContent='mic';if(lbl){lbl.textContent='Mute';lbl.style.color='#64748b';}}
+  document.getElementById('micStatusIcon').textContent=S.muted?'mic_off':'mic';
+  toast(S.muted?'Microphone muted':'Microphone unmuted',S.muted?'mic_off':'mic');
+}
+
+function toggleCamera(){
+  S.camOff=!S.camOff;
+  if(S.localStream) S.localStream.getVideoTracks().forEach(t=>t.enabled=!S.camOff);
+  const b=document.getElementById('camBtn'),i=document.getElementById('camIcon'),lbl=document.getElementById('camLabel');
+  if(S.camOff){b.className='ctrl ctrl-danger';i.textContent='videocam_off';if(lbl){lbl.textContent='Start Cam';lbl.style.color='#f87171';}}
+  else{b.className='ctrl ctrl-default';i.textContent='videocam';if(lbl){lbl.textContent='Camera';lbl.style.color='#64748b';}}
+  document.getElementById('videoOffBg').classList.toggle('hidden',!S.camOff);
+  document.getElementById('localVideo').style.opacity=S.camOff?'0':'1';
+  toast(S.camOff?'Camera turned off':'Camera turned on',S.camOff?'videocam_off':'videocam');
+}
+
+async function toggleShare(){
+  if(!S.sharing){
+    try{
+      S.screenStream=await navigator.mediaDevices.getDisplayMedia({video:true});
+      document.getElementById('localVideo').srcObject=S.screenStream;
+      S.sharing=true;
+      const b=document.getElementById('shareBtn'),i=document.getElementById('shareIcon');
+      b.className='ctrl ctrl-active';i.textContent='stop_screen_share';
+      toast('Screen sharing started','present_to_all');
+      S.screenStream.getVideoTracks()[0].addEventListener('ended',()=>{S.sharing=false;if(S.localStream)document.getElementById('localVideo').srcObject=S.localStream;b.className='ctrl ctrl-default';i.textContent='present_to_all';});
+    }catch(e){toast('Share cancelled','cancel');}
+  }else{
+    if(S.screenStream){S.screenStream.getTracks().forEach(t=>t.stop());S.screenStream=null;}
+    if(S.localStream)document.getElementById('localVideo').srcObject=S.localStream;
+    S.sharing=false;
+    document.getElementById('shareBtn').className='ctrl ctrl-default';
+    document.getElementById('shareIcon').textContent='present_to_all';
+    toast('Screen share stopped');
+  }
+}
+
+function toggleHand(){
+  S.handUp=!S.handUp;
+  const b=document.getElementById('handBtn'),i=document.getElementById('handIcon'),badge=document.getElementById('handBadge');
+  if(S.handUp){b.className='ctrl ctrl-active';badge.classList.remove('hidden');toast('Hand raised ✋','back_hand');}
+  else{b.className='ctrl ctrl-default';badge.classList.add('hidden');toast('Hand lowered');}
+}
+
+// TIMER
+function startTimer(){
+  S.timer=setInterval(()=>{S.secs++;const m=String(Math.floor(S.secs/60)).padStart(2,'0'),s=String(S.secs%60).padStart(2,'0');document.getElementById('timer').textContent=`Live • ${m}:${s}`;},1000);
+}
+
+// SIDEBAR TABS
+function sideTab(name){
+  const map={ai:'pAI',live:'pLive',trans:'pTrans',chat:'pChat'};
+  const bmap={ai:'tabAI',live:'tabLive',trans:'tabTrans',chat:'tabChat'};
+  Object.values(map).forEach(id=>{const el=document.getElementById(id);if(el){el.classList.remove('active');}});
+  Object.values(bmap).forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('active');});
+  document.getElementById(map[name])?.classList.add('active');
+  document.getElementById(bmap[name])?.classList.add('active');
+}
+
+// KEY POINTS
+async function extractKP(){
+  const txt=document.getElementById('transcriptInput').value.trim();
+  if(!txt){toast('Add transcript text first','warning');return;}
+  const aiLabel = AI_ENABLED ? 'Extracting key points…' : 'Analyzing transcript…';
+  toast(aiLabel,'psychology');
+  const btn = document.querySelector('[onclick="extractKP()"]');
+  if(btn){btn.disabled=true;btn.style.opacity='.6';}
+  try{
+    const res=await fetch('/api/ai/extract-key-points',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({transcript:txt})});
+    const data=await res.json();
+    if(data.key_points?.length){
+      data.key_points.forEach(kp=>renderKP(kp));
+      if(data.summary){document.getElementById('summaryText').textContent=data.summary;document.getElementById('summarySection').classList.remove('hidden');}
+      const badge = data.ai_powered ? '✨ Smart Analysis' : '⚡ Analysis';
+      toast(`${data.key_points.length} key points extracted (${badge})!`,'emoji_objects');
+    } else {
+      toast('No key points found — try adding more transcript text.','info');
+    }
+  }catch(e){toast('Extraction failed — check connection','error');}
+  finally{if(btn){btn.disabled=false;btn.style.opacity='1';}}
+}
+
+function renderKP(kp){
+  document.getElementById('kpEmpty')?.remove();
+  S.kps.push(kp);
+  const list=document.getElementById('kpList');
+  const el=document.createElement('div');
+  el.className='fade-up rounded-xl p-3 flex items-start gap-2';
+  el.style.cssText='background:#1a2235;border:1px solid rgba(255,255,255,.07)';
+  const cls={decision:'kp-decision',action:'kp-action',deadline:'kp-deadline',follow_up:'kp-follow_up'}[kp.type]||'kp-decision';
+  el.innerHTML=`<span class="kp-badge ${cls}">${(kp.type||'note').replace('_',' ')}</span><p class="text-xs leading-relaxed flex-1" style="color:#cbd5e1">${kp.text}</p>${kp.timestamp?`<span class="text-xs shrink-0" style="color:#334155">${kp.timestamp}</span>`:''}`;
+  list.appendChild(el);
+  document.getElementById('kpCount').textContent=S.kps.length;
+}
+
+function addKP(){
+  const t=prompt('Add key point:');if(t?.trim())renderKP({type:'action',text:t.trim(),timestamp:new Date().toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit'})});
+}
+
+// SAVE NOTES
+async function saveNotes(){
+  const summary=document.getElementById('summaryText').textContent;
+  try{
+    await fetch('/api/notes/save-from-meeting',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({meeting_id:MEETING_ID,key_points:S.kps,ai_summary:summary})});
+    toast('Notes saved!','check_circle');
+  }catch(e){toast('Save failed','error');}
+}
+
+// TRANSLATION
+function setLang(lang){
+  S.lang=lang;
+  document.querySelectorAll('[data-lang]').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll(`[data-lang="${lang}"]`).forEach(b=>b.classList.add('active'));
+  const sel=document.getElementById('langSel');if(sel)sel.value=lang;
+  document.getElementById('transStatusLabel').textContent=`Target: ${lang.toUpperCase()} selected`;
+}
+
+// ── LIVE VOICE TRANSLATION (Web Speech API) ──────────────────────────────────
+
+// Language code map for SpeechRecognition (source = English)
+const SPEECH_LANG = 'en-US';
+
+let S_recognition = null;   // SpeechRecognition instance
+let S_speechSupported = ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+
+function initSpeechRecognition() {
+  if (!S_speechSupported) return null;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const rec = new SR();
+  rec.lang = SPEECH_LANG;
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.maxAlternatives = 1;
+
+  let interimEl = null;
+
+  rec.onresult = async function(event) {
+    let interim = '', final_text = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const t = event.results[i][0].transcript;
+      if (event.results[i].isFinal) final_text += t;
+      else interim += t;
+    }
+
+    // Show interim in live feed with italic style
+    if (interim) {
+      if (!interimEl) {
+        interimEl = document.createElement('div');
+        interimEl.id = 'interimLine';
+        interimEl.className = 'rounded-xl p-2.5';
+        interimEl.style.cssText = 'background:#1a2235;border:1px solid rgba(255,255,255,.05);opacity:0.6;';
+        document.getElementById('liveFeed')?.appendChild(interimEl);
+      }
+      interimEl.innerHTML = `<p class="text-xs italic" style="color:#64748b">🎤 ${interim}</p>`;
+      document.getElementById('liveFeed').scrollTop = 99999;
+    }
+
+    if (final_text.trim()) {
+      // Remove interim placeholder
+      interimEl?.remove(); interimEl = null;
+
+      const text = final_text.trim();
+      addLiveEntry(USER_NAME, text);
+
+      // Translate and show subtitle
+      if (S.translating) {
+        try {
+          const res = await fetch('/api/translate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({text, target_lang: S.lang})
+          });
+          const data = await res.json();
+          if (data.translated) {
+            const sub = document.getElementById('subOverlay');
+            if (sub) {
+              sub.textContent = data.translated;
+              sub.classList.remove('hidden');
+              clearTimeout(sub._hideTimer);
+              sub._hideTimer = setTimeout(() => sub.classList.add('hidden'), 5000);
+            }
+            const method = data.method === 'google' ? '🌐' : data.method === 'mymemory' ? '⚡' : '⚡';
+            addTransHist(text, data.translated, data.lang_name, method);
+            document.getElementById('transStatusLabel').textContent =
+              data.method === 'google' ? '🌐 Google Translate' :
+              data.method === 'mymemory' ? '⚡ MyMemory (Free)' : '⚡ Fallback';
+          }
+        } catch(e) { console.warn('Translation error:', e); }
+      }
+    }
+  };
+
+  rec.onerror = function(e) {
+    console.warn('SpeechRecognition error:', e.error);
+    if (e.error === 'not-allowed') {
+      toast('Mic permission denied — enable mic to use voice translation', 'mic_off');
+      S.translating = false;
+      stopSpeechRecognition();
+      updateTranslationUI(false);
+    } else if (e.error === 'network') {
+      toast('Network error in speech recognition', 'wifi_off');
+    }
+    // For 'no-speech' or 'aborted' — just continue, will auto-restart
+  };
+
+  rec.onend = function() {
+    // Auto-restart if still in translating mode (browser stops after silence)
+    if (S.translating && S_recognition) {
+      setTimeout(() => {
+        try { S_recognition.start(); } catch(e) {}
+      }, 300);
+    }
+  };
+
+  return rec;
+}
+
+function startSpeechRecognition() {
+  if (!S_speechSupported) {
+    toast('Voice translation needs Chrome or Edge browser', 'warning');
+    return false;
+  }
+  try {
+    S_recognition = initSpeechRecognition();
+    S_recognition.start();
+    return true;
+  } catch(e) {
+    console.warn('Speech start error:', e);
+    toast('Could not start microphone for voice translation', 'mic_off');
+    return false;
+  }
+}
+
+function stopSpeechRecognition() {
+  if (S_recognition) {
+    try { S_recognition.stop(); } catch(e) {}
+    S_recognition = null;
+  }
+  document.getElementById('interimLine')?.remove();
+}
+
+function updateTranslationUI(isOn) {
+  const b   = document.getElementById('transBtn');
+  const dot = document.getElementById('transDot');
+  const sel = document.getElementById('langSel');
+  const tb  = document.getElementById('transToggleBtn');
+  const ti  = document.getElementById('transToggleIco');
+  const tl  = document.getElementById('transToggleLabel');
+  if (isOn) {
+    b.className = 'ctrl ctrl-active'; dot.classList.remove('hidden'); sel.classList.remove('hidden');
+    if (tb) tb.classList.add('active'); if (ti) ti.textContent = 'pause'; if (tl) tl.textContent = 'Active';
+    document.getElementById('transStatusLabel').textContent = `🎤 Listening → ${S.lang.toUpperCase()}…`;
+  } else {
+    b.className = 'ctrl ctrl-default'; dot.classList.add('hidden'); sel.classList.add('hidden');
+    if (tb) tb.classList.remove('active'); if (ti) ti.textContent = 'play_arrow'; if (tl) tl.textContent = 'Start';
+    document.getElementById('subOverlay')?.classList.add('hidden');
+    document.getElementById('transStatusLabel').textContent = S_speechSupported
+      ? 'Click Start to enable live voice translation'
+      : '⚠️ Use Chrome/Edge for voice translation';
+  }
+}
+
+function toggleTranslation() {
+  S.translating = !S.translating;
+  if (S.translating) {
+    const started = startSpeechRecognition();
+    if (!started) { S.translating = false; return; }
+    updateTranslationUI(true);
+    toast(`🎤 Live translation to ${S.lang.toUpperCase()} started`, 'translate');
+    // Switch to Translate tab so user sees live output
+    sideTab('trans');
+  } else {
+    stopSpeechRecognition();
+    updateTranslationUI(false);
+    toast('Translation paused', 'translate');
+  }
+}
+
+async function doTranslate() {
+  const txt = document.getElementById('transInp').value.trim();
+  if (!txt) { toast('Enter text to translate', 'warning'); return; }
+  document.getElementById('transStatusLabel').textContent = 'Translating…';
+  try {
+    const res = await fetch('/api/translate', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({text: txt, target_lang: S.lang})
+    });
+    const data = await res.json();
+    if (data.translated) {
+      const methodLabel = data.method === 'google' ? '🌐 Google Translate'
+        : data.method === 'mymemory' ? '⚡ MyMemory (Free)'
+        : data.method === 'libre' ? '⚡ LibreTranslate'
+        : '⚡ Fallback';
+      document.getElementById('transOutLabel').textContent = `${data.lang_name || S.lang.toUpperCase()} — ${methodLabel}`;
+      document.getElementById('transOutText').textContent = data.translated;
+      document.getElementById('transOut').classList.remove('hidden');
+      document.getElementById('transStatusLabel').textContent = methodLabel;
+      addTransHist(txt, data.translated, data.lang_name, '');
+    }
+  } catch(e) {
+    toast('Translation failed — check network', 'error');
+    document.getElementById('transStatusLabel').textContent = 'Translation failed';
+  }
+}
+
+async function transSummary() {
+  const summ = document.getElementById('summaryText').textContent; if (!summ) return;
+  const res = await fetch('/api/translate/summary', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({summary: summ, target_lang: S.lang})
+  });
+  const data = await res.json();
+  const el = document.getElementById('transSummaryOut');
+  el.textContent = data.translated; el.classList.remove('hidden');
+  toast('Summary translated!', 'translate');
+}
+
+function addTransHist(orig, trans, langName, methodIcon) {
+  S.transHist.unshift({orig, trans, langName, methodIcon});
+  const c = document.getElementById('transHist'); if (!c) return;
+  c.innerHTML = '';
+  S.transHist.slice(0, 6).forEach(h => {
+    const el = document.createElement('div');
+    el.className = 'rounded-xl p-2.5';
+    el.style.cssText = 'background:#1a2235;border:1px solid rgba(255,255,255,.07)';
+    el.innerHTML = `<p class="text-xs mb-1" style="color:#475569">${h.orig}</p>
+      <p class="text-xs font-medium" style="color:#60a5fa">${h.trans}</p>
+      ${h.methodIcon ? `<p class="text-xs mt-0.5" style="color:#334155">${h.methodIcon} ${h.langName||''}</p>` : ''}`;
+    c.appendChild(el);
+  });
+}
+
+// LIVE TRANSCRIPT
+function addLiveLine(){
+  const inp=document.getElementById('liveInput');const txt=inp.value.trim();if(!txt)return;
+  addLiveEntry(USER_NAME,txt);
+  if(S.translating)doSubtitle(txt);
+  inp.value='';
+}
+
+function addLiveEntry(speaker,text){
+  const feed=document.getElementById('liveFeed');if(!feed)return;
+  const ph=feed.querySelector('.text-center');if(ph)ph.remove();
+  const el=document.createElement('div');el.className='fade-up rounded-xl p-2.5';el.style.cssText='background:#1a2235;border:1px solid rgba(255,255,255,.07)';
+  const time=new Date().toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit'});
+  el.innerHTML=`<div class="flex items-center gap-2 mb-1"><span class="text-xs font-semibold" style="color:#60a5fa">${speaker}</span><span class="text-xs" style="color:#334155">${time}</span></div><p class="text-xs leading-relaxed" style="color:#94a3b8">${text}</p>`;
+  feed.appendChild(el);feed.scrollTop=feed.scrollHeight;
+  const ta=document.getElementById('transcriptInput');if(ta)ta.value=(ta.value?ta.value+'\n':'')+`[${time}] ${speaker}: ${text}`;
+}
+
+async function doSubtitle(text){
+  const res=await fetch('/api/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,target_lang:S.lang})});
+  const data=await res.json();
+  if(data.translated){const sub=document.getElementById('subOverlay');if(sub){sub.textContent=data.translated;sub.classList.remove('hidden');setTimeout(()=>sub.classList.add('hidden'),4000);}}
+}
+
+// CHAT
+function sendChat(){
+  const inp=document.getElementById('chatIn');const txt=inp.value.trim();if(!txt)return;
+  const feed=document.getElementById('chatFeed');
+  const ph=feed.querySelector('.text-center');if(ph)ph.remove();
+  const time=new Date().toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit'});
+  // Show own message immediately
+  const el=document.createElement('div');el.className='fade-up flex justify-end';
+  el.innerHTML=`<div class="max-w-xs rounded-2xl rounded-tr-sm px-3 py-2" style="background:var(--primary)"><p class="text-xs text-white">${txt}</p><p class="text-xs text-right mt-0.5" style="color:rgba(255,255,255,.6)">${time}</p></div>`;
+  feed.appendChild(el);feed.scrollTop=feed.scrollHeight;inp.value='';
+  // ✅ FIX: Broadcast to all other participants in the same room
+  sendRoomChat(txt);
+}
+
+// INVITE
+function openInvite(){
+  checkGmail();document.getElementById('inviteModal').classList.remove('hidden');
+}
+function closeInvite(){document.getElementById('inviteModal').classList.add('hidden');}
+function copyLink(){navigator.clipboard?.writeText(window.location.href).then(()=>toast('Link copied!','link'));}
+
+async function checkGmail(){
+  const ico=document.getElementById('gmailIco'),msg=document.getElementById('gmailMsg');
+  try{
+    const res=await fetch('/api/settings');const data=await res.json();
+    if(data.smtp_enabled&&data.gmail_address){
+      ico.textContent='check_circle';ico.style.color='#4ade80';
+      msg.textContent=`Will send from ${data.gmail_address}`;msg.style.color='#4ade80';
+    }else{
+      ico.textContent='warning';ico.style.color='#fbbf24';
+      ico.textContent='warning';ico.style.color='#fbbf24';
+      msg.innerHTML='Gmail not configured — <a href="/settings#tab-gmail" target="_blank" style="color:#fbbf24;text-decoration:underline">Configure in Settings</a>';msg.style.color='#fbbf24';
+    }
+  }catch(e){}
+}
+
+async function sendInvites(){
+  const ta     = document.getElementById('inviteEmails');
+  const btn    = document.getElementById('sendInviteBtn');
+  const btnTxt = document.getElementById('sendInviteBtnText');
+  const resArea= document.getElementById('inviteResultArea');
+  const resMsg = document.getElementById('inviteResultMsg');
+  const resDet = document.getElementById('inviteResultDetails');
+
+  // Parse comma or newline separated emails
+  const emails = ta.value.trim()
+    .split(/[,\n]/)
+    .map(e => e.trim())
+    .filter(e => e.includes('@'));
+
+  if (!emails.length) { toast('Enter valid email addresses', 'warning'); return; }
+
+  btn.disabled = true;
+  btnTxt.textContent = `Sending to ${emails.length}…`;
+  resArea.classList.add('hidden');
+
+  try {
+    const res  = await fetch('/api/notify/meeting-invite', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        recipients: emails,
+        meeting_title: MEETING_TITLE,
+        meeting_time: MEETING_TIME,
+        meeting_link: window.location.href
+      })
+    });
+    const data = await res.json();
+
+    // Show result area
+    resArea.classList.remove('hidden');
+
+    if (data.smtp_needed) {
+      resArea.style.borderColor = 'rgba(251,191,36,.3)';
+      resMsg.style.color = '#fbbf24';
+      resMsg.textContent = '⚠️ Not sent — Gmail SMTP not configured';
+      resDet.innerHTML = 'Go to <a href="/settings#tab-gmail" target="_blank" style="color:#60a5fa;text-decoration:underline">Settings → Gmail & SMTP</a> → enter Gmail address + App Password → enable → save. Then come back and resend.';
+      toast('Configure Gmail SMTP in Settings first', 'warning');
+    } else if (data.success) {
+      resArea.style.borderColor = 'rgba(74,222,128,.3)';
+      resMsg.style.color = '#4ade80';
+      resMsg.textContent = data.message;
+      // Show per-recipient results
+      if (data.results) {
+        resDet.innerHTML = Object.entries(data.results)
+          .map(([email, status]) =>
+            `<div style="display:flex;gap:8px;margin-top:4px">
+              <span style="color:#94a3b8;font-family:monospace;font-size:11px">${email}</span>
+              <span style="color:${status.includes('✅')?'#4ade80':'#f87171'};font-size:11px">${status}</span>
+            </div>`).join('');
+      }
+      toast(data.message, 'check_circle');
+      ta.value = '';
+    } else {
+      resArea.style.borderColor = 'rgba(248,113,113,.3)';
+      resMsg.style.color = '#f87171';
+      resMsg.textContent = data.message;
+      resDet.innerHTML = '';
+      toast('Send failed — check Settings', 'error');
+    }
+  } catch(e) {
+    toast('Network error', 'error');
+  } finally {
+    btn.disabled = false;
+    btnTxt.textContent = 'Send Invites';
+  }
+}
+
+// END MEETING
+function endMeeting(){document.getElementById('endModal').classList.remove('hidden');}
+
+async function confirmEnd(){
+  await saveNotes().catch(()=>{});
+  try{await fetch(`/api/meetings/${MEETING_ID}/end`,{method:'POST'});}catch(e){}
+  clearInterval(S.timer);
+  stopSpeechRecognition();
+  if(S.localStream)S.localStream.getTracks().forEach(t=>t.stop());
+  if(S.screenStream)S.screenStream.getTracks().forEach(t=>t.stop());
+  window.location.href='/meeting-notes';
+}
+
+// EXTRAS
+function takeScreenshot(){
+  const canvas=document.createElement('canvas'),video=document.getElementById('localVideo');
+  canvas.width=video.videoWidth||1280;canvas.height=video.videoHeight||720;
+  canvas.getContext('2d').drawImage(video,0,0);
+  const a=document.createElement('a');a.download=`meetflow-${Date.now()}.png`;a.href=canvas.toDataURL();a.click();
+  toast('Screenshot saved!','screenshot');
+}
+
+// TOAST
+function toast(msg,icon='info'){
+  document.querySelectorAll('.toast-notif').forEach(n=>n.remove());
+  const el=document.createElement('div');el.className='toast-notif';
+  el.innerHTML=`<span class="ms" style="color:var(--primary);font-size:18px">${icon}</span>${msg}`;
+  document.body.appendChild(el);setTimeout(()=>el.remove(),2500);
+}
+
+// INIT
+document.addEventListener('DOMContentLoaded',()=>{
+  initMedia();startTimer();setLang(INIT_LANG);
+  if(TRANS_ON_INIT)document.getElementById('transDot')?.classList.remove('hidden');
+  document.addEventListener('click',e=>{
+    const m=document.getElementById('moreMenu');
+    if(m&&!m.classList.contains('hidden')&&!e.target.closest('#moreBtn')&&!e.target.closest('#moreMenu'))m.classList.add('hidden');
+  });
+  window.addEventListener('beforeunload',e=>{if(S.kps.length){e.preventDefault();e.returnValue='Unsaved notes!';}});
+});
+</script>
+</body>
+</html>

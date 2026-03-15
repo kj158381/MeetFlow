@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+{% block title %}Calendar — MeetFlow{% endblock %}
+{% block content %}
+<div class="flex-1 flex flex-col overflow-hidden">
+  <!-- Header -->
+  <div class="sticky top-0 bg-white border-b border-slate-200 z-10 px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-4">
+      <div>
+        <h1 class="font-display font-bold text-slate-900 text-xl" id="calTitle">Calendar</h1>
+        <p class="text-sm text-slate-400" id="calSubtitle">Loading…</p>
+      </div>
+      <div class="flex items-center gap-1">
+        <button onclick="CalApp.prev()" class="size-9 flex items-center justify-center rounded-xl border border-slate-200 hover:bg-slate-50 transition-all">
+          <span class="msymbol text-slate-600">chevron_left</span>
+        </button>
+        <button onclick="CalApp.today()" class="px-4 py-2 text-xs font-semibold border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">Today</button>
+        <button onclick="CalApp.next()" class="size-9 flex items-center justify-center rounded-xl border border-slate-200 hover:bg-slate-50 transition-all">
+          <span class="msymbol text-slate-600">chevron_right</span>
+        </button>
+      </div>
+      <!-- View toggles -->
+      <div class="hidden sm:flex items-center gap-1 p-1 rounded-xl border border-slate-200 bg-slate-50">
+        <button onclick="CalApp.setView('month')" id="viewMonth" class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all bg-white shadow-sm text-slate-900">Month</button>
+        <button onclick="CalApp.setView('week')" id="viewWeek" class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-slate-500">Week</button>
+        <button onclick="CalApp.setView('list')" id="viewList" class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-slate-500">List</button>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="syncCalendar()" class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border border-primary/30 text-primary hover:bg-primary/5 transition-all">
+        <span class="msymbol text-lg">sync</span>Sync
+      </button>
+      <a href="{{ url_for('new_meeting') }}" class="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-all shadow-sm shadow-primary/20">
+        <span class="msymbol text-xl">add</span>Schedule
+      </a>
+    </div>
+  </div>
+
+  <div class="flex flex-1 min-h-0 overflow-hidden">
+    <!-- Mini sidebar -->
+    <div class="hidden lg:flex flex-col w-56 border-r border-slate-200 p-4 bg-white shrink-0 overflow-y-auto">
+      <!-- Mini calendar -->
+      <div class="mb-4">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-bold text-slate-700 uppercase tracking-wider" id="miniTitle"></span>
+          <div class="flex gap-0.5">
+            <button onclick="CalApp.prev()" class="size-5 flex items-center justify-center rounded hover:bg-slate-100"><span class="msymbol text-slate-500" style="font-size:14px">chevron_left</span></button>
+            <button onclick="CalApp.next()" class="size-5 flex items-center justify-center rounded hover:bg-slate-100"><span class="msymbol text-slate-500" style="font-size:14px">chevron_right</span></button>
+          </div>
+        </div>
+        <div class="grid grid-cols-7 gap-px text-center" id="miniGrid">
+          {% for d in ['S','M','T','W','T','F','S'] %}
+          <div class="text-xs font-bold text-slate-400 py-1">{{ d }}</div>
+          {% endfor %}
+        </div>
+      </div>
+      <!-- Upcoming -->
+      <div>
+        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Upcoming</p>
+        <div id="upcomingList" class="space-y-2">
+          {% for m in meetings[:5] %}
+          <a href="{{ url_for('live_meeting', mid=m.id) }}" class="block p-2 rounded-lg hover:bg-slate-50 transition-colors group">
+            <div class="flex items-center gap-2">
+              <div class="w-2 h-2 rounded-full bg-primary shrink-0"></div>
+              <p class="text-xs font-medium text-slate-800 truncate group-hover:text-primary">{{ m.title }}</p>
+            </div>
+            <p class="text-xs text-slate-400 ml-4">{{ m.scheduled_at[:10] if m.scheduled_at else 'No date' }}</p>
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Main calendar area -->
+    <div class="flex-1 overflow-auto">
+      <!-- Month view -->
+      <div id="monthView" class="p-4">
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div class="grid grid-cols-7 border-b border-slate-100">
+            {% for day in ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] %}
+            <div class="py-3 text-center text-xs font-bold text-slate-400 uppercase tracking-wider">{{ day }}</div>
+            {% endfor %}
+          </div>
+          <div class="grid grid-cols-7" id="calGrid" style="min-height:520px"></div>
+        </div>
+      </div>
+
+      <!-- Week view -->
+      <div id="weekView" class="p-4 hidden">
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div class="grid grid-cols-8 border-b border-slate-100">
+            <div class="py-3 text-center text-xs font-bold text-slate-400 uppercase tracking-wider"></div>
+            {% for day in ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] %}
+            <div class="py-3 text-center" id="weekDay{{ loop.index0 }}">
+              <p class="text-xs font-bold text-slate-400 uppercase">{{ day }}</p>
+              <p class="text-lg font-bold text-slate-900 mt-0.5" id="weekNum{{ loop.index0 }}">-</p>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="grid grid-cols-8" id="weekGrid" style="min-height:400px">
+            {% for hour in range(8,20) %}
+            <div class="border-b border-slate-50 py-3 px-2 text-right text-xs text-slate-400 font-medium">{{ '%02d:00'|format(hour) }}</div>
+            {% for d in range(7) %}
+            <div class="border-b border-l border-slate-50 min-h-12 relative" data-hour="{{ hour }}" data-day="{{ d }}"></div>
+            {% endfor %}
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- List view -->
+      <div id="listView" class="p-4 hidden">
+        <div class="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100" id="listContainer">
+          {% if meetings %}
+            {% for m in meetings %}
+            <div class="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors group">
+              <div class="text-center w-12 shrink-0">
+                <p class="text-xs text-slate-400 font-medium">{{ m.scheduled_at[:7] if m.scheduled_at else '' }}</p>
+                <p class="text-xl font-bold text-slate-900">{{ m.scheduled_at[8:10] if m.scheduled_at and m.scheduled_at|length > 9 else '--' }}</p>
+              </div>
+              <div class="w-2 h-2 rounded-full bg-primary shrink-0"></div>
+              <div class="flex-1 min-w-0">
+                <p class="font-semibold text-slate-900 truncate">{{ m.title }}</p>
+                <p class="text-xs text-slate-400">{{ (m.scheduled_at[11:16] if m.scheduled_at else '') }} · {{ m.duration_minutes }} min</p>
+              </div>
+              <span class="text-xs px-2.5 py-1 rounded-full font-semibold
+                {% if m.status == 'completed' %}bg-green-100 text-green-700
+                {% elif m.status == 'live' %}bg-red-100 text-red-600
+                {% else %}bg-blue-100 text-blue-700{% endif %}">
+                {{ m.status|capitalize }}
+              </span>
+              <a href="{{ url_for('live_meeting', mid=m.id) }}" class="opacity-0 group-hover:opacity-100 flex items-center gap-1 text-primary text-xs font-semibold transition-opacity">
+                <span class="msymbol text-lg">open_in_new</span>Open
+              </a>
+            </div>
+            {% endfor %}
+          {% else %}
+          <div class="text-center py-16">
+            <span class="msymbol text-slate-300 text-5xl">event_busy</span>
+            <p class="text-slate-400 mt-2">No meetings yet</p>
+            <a href="{{ url_for('new_meeting') }}" class="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold">
+              <span class="msymbol">add</span>Schedule your first
+            </a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Sync result toast -->
+<div id="syncMsg" class="fixed bottom-6 right-6 hidden z-50">
+  <div class="flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl bg-green-600 text-white">
+    <span class="msymbol text-xl">check_circle</span>
+    <span class="text-sm font-medium" id="syncMsgText">Synced!</span>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/calendar.js') }}"></script>
+<script>
+const meetingsData = {{ meetings | tojson if meetings else '[]' }};
+
+async function syncCalendar() {
+  try {
+    const res = await fetch('/api/calendar/sync', {method:'POST'});
+    const data = await res.json();
+    const msg = document.getElementById('syncMsg');
+    document.getElementById('syncMsgText').textContent = data.message;
+    msg.classList.remove('hidden');
+    setTimeout(() => msg.classList.add('hidden'), 3500);
+  } catch(e) { alert('Sync failed'); }
+}
+
+const CalApp = {
+  current: new Date(), view: 'month',
+  init() { this.render(); },
+  prev() { if(this.view==='month'){this.current.setMonth(this.current.getMonth()-1);}else{this.current.setDate(this.current.getDate()-7);}this.render();},
+  next() { if(this.view==='month'){this.current.setMonth(this.current.getMonth()+1);}else{this.current.setDate(this.current.getDate()+7);}this.render();},
+  today() { this.current = new Date(); this.render(); },
+  setView(v) {
+    this.view = v;
+    ['month','week','list'].forEach(n=>{
+      document.getElementById(n+'View').classList.toggle('hidden', n!==v);
+      const btn = document.getElementById('view'+n.charAt(0).toUpperCase()+n.slice(1));
+      if(btn){btn.classList.toggle('bg-white',n===v);btn.classList.toggle('shadow-sm',n===v);btn.classList.toggle('text-slate-900',n===v);btn.classList.toggle('text-slate-500',n!==v);}
+    });
+    this.render();
+  },
+  render() {
+    const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const d = this.current;
+    document.getElementById('calTitle').textContent = months[d.getMonth()]+' '+d.getFullYear();
+    document.getElementById('calSubtitle').textContent = this.view.charAt(0).toUpperCase()+this.view.slice(1)+' view';
+    if(document.getElementById('miniTitle')) document.getElementById('miniTitle').textContent = months[d.getMonth()].slice(0,3)+' '+d.getFullYear();
+    if(this.view==='month') this.renderMonth();
+    if(this.view==='week') this.renderWeek();
+    this.renderMini();
+  },
+  renderMonth() {
+    const grid = document.getElementById('calGrid'); if(!grid)return;
+    const d = this.current; const today = new Date();
+    const year=d.getFullYear(), month=d.getMonth();
+    const firstDay=new Date(year,month,1).getDay();
+    const daysInMonth=new Date(year,month+1,0).getDate();
+    const daysInPrev=new Date(year,month,0).getDate();
+    let html='';
+    const totalCells = firstDay + daysInMonth; const rows = Math.ceil(totalCells/7);
+    for(let i=0;i<rows*7;i++){
+      let dayNum, isCurrent=true;
+      if(i<firstDay){dayNum=daysInPrev-firstDay+i+1;isCurrent=false;}
+      else if(i>=firstDay+daysInMonth){dayNum=i-firstDay-daysInMonth+1;isCurrent=false;}
+      else{dayNum=i-firstDay+1;}
+      const isToday=isCurrent&&dayNum===today.getDate()&&month===today.getMonth()&&year===today.getFullYear();
+      const dateStr=`${year}-${String(month+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+      const dayMeetings=meetingsData.filter(m=>m.scheduled_at&&m.scheduled_at.startsWith(dateStr));
+      html+=`<div class="border-b border-r border-slate-100 p-2 min-h-24 ${!isCurrent?'bg-slate-50/50':'hover:bg-slate-50/50'} transition-colors cursor-pointer" onclick="handleDayClick('${dateStr}')">
+        <span class="text-sm font-semibold ${isToday?'size-7 bg-primary text-white rounded-full flex items-center justify-center':'text-'+(!isCurrent?'slate-400':'slate-700')}">${dayNum}</span>
+        <div class="mt-1 space-y-0.5">
+          ${dayMeetings.slice(0,3).map(m=>`<a href="/meeting/${m.id}/live" onclick="event.stopPropagation()" class="block text-xs px-2 py-0.5 rounded-md font-medium truncate hover:opacity-80" style="background:rgba(19,91,236,.12);color:#135bec">${m.title}</a>`).join('')}
+          ${dayMeetings.length>3?`<p class="text-xs text-slate-400 px-2">+${dayMeetings.length-3} more</p>`:''}
+        </div>
+      </div>`;
+    }
+    grid.innerHTML = html;
+  },
+  renderWeek() {
+    const d = new Date(this.current);
+    const dow = d.getDay(); d.setDate(d.getDate()-dow);
+    const days = [];
+    for(let i=0;i<7;i++){const nd=new Date(d);nd.setDate(d.getDate()+i);days.push(nd);}
+    days.forEach((day,i)=>{
+      const el=document.getElementById('weekNum'+i);
+      if(el)el.textContent=day.getDate();
+    });
+  },
+  renderMini() {
+    const grid=document.getElementById('miniGrid');if(!grid)return;
+    const d=this.current;const year=d.getFullYear(),month=d.getMonth();
+    const today=new Date();const firstDay=new Date(year,month,1).getDay();
+    const daysInMonth=new Date(year,month+1,0).getDate();
+    let html='<div class="text-xs font-bold text-slate-400 py-1 text-center">S</div><div class="text-xs font-bold text-slate-400 py-1 text-center">M</div><div class="text-xs font-bold text-slate-400 py-1 text-center">T</div><div class="text-xs font-bold text-slate-400 py-1 text-center">W</div><div class="text-xs font-bold text-slate-400 py-1 text-center">T</div><div class="text-xs font-bold text-slate-400 py-1 text-center">F</div><div class="text-xs font-bold text-slate-400 py-1 text-center">S</div>';
+    for(let i=0;i<firstDay;i++)html+='<div></div>';
+    for(let i=1;i<=daysInMonth;i++){
+      const isT=i===today.getDate()&&month===today.getMonth()&&year===today.getFullYear();
+      html+=`<div class="size-6 rounded-full flex items-center justify-center mx-auto text-xs cursor-pointer hover:bg-slate-100 ${isT?'bg-primary text-white font-bold':''}">${i}</div>`;
+    }
+    grid.innerHTML=html;
+  }
+};
+
+function handleDayClick(dateStr){
+  if(confirm(`Schedule a meeting on ${dateStr}?`)) window.location.href='/meeting/new';
+}
+
+document.addEventListener('DOMContentLoaded', ()=>CalApp.init());
+</script>
+{% endblock %}
