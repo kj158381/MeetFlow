@@ -28,8 +28,9 @@ def create_app():
     app.config.update(
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
+        SESSION_COOKIE_SECURE=Config.SESSION_COOKIE_SECURE,
         PERMANENT_SESSION_LIFETIME=Config.PERMANENT_SESSION_LIFETIME,
-        SQLALCHEMY_DATABASE_URI=f"sqlite:///{Config.DATABASE}",
+        SQLALCHEMY_DATABASE_URI=Config.SQLALCHEMY_DATABASE_URI,
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
     )
     os.makedirs(os.path.dirname(Config.DATABASE), exist_ok=True)
@@ -280,6 +281,8 @@ def _register_routes(app):
     @app.route("/auth/demo", methods=["POST"])
     def auth_demo():
         """Email/password login when Firebase is not configured."""
+        if Config.APP_ENV == "production":
+            return jsonify({"success": False, "error": "Demo login is disabled in production."}), 403
         email    = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "").strip()
         if not email or "@" not in email:

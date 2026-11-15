@@ -171,13 +171,34 @@ Set in `.env`:
 
 ---
 
+## Free Hosting (Render + Neon)
+
+The repository includes a Render Blueprint in `render.yaml`. This setup uses Render's
+free web service and Neon Free PostgreSQL. Render's free service sleeps after inactivity
+and its local filesystem is temporary, so the app uses Neon for persistent database data.
+Uploaded avatars in `static/uploads` are not persistent on the free service.
+
+1. Create a Neon project and copy its PostgreSQL connection string.
+2. In Render, create a **Blueprint** from this GitHub repository and select the free plan.
+3. Set `DATABASE_URL` to the Neon connection string and provide the Firebase values requested
+   by the Blueprint: `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`, and
+   `FIREBASE_APP_ID`. Render generates `SECRET_KEY` for you.
+4. After the first deploy, add your Render hostname to Firebase Authentication's authorized
+   domains. If using Google OAuth, add
+   `https://<your-render-host>/auth/google/callback` as an authorized redirect URI.
+5. Add optional Gemini, Google Translate, SMTP, and Google OAuth settings in Render's
+   environment dashboard if you use those features.
+
+Set `APP_BASE_URL` to your Render URL if you use a custom domain or need to override the
+automatically detected Render URL. Do not commit `.env` or paste credentials into GitHub.
+
 ## Quick start (any computer)
 
 1. Install Python 3.9 or newer.
 2. **Windows:** double-click `run.bat`  |  **Mac/Linux:** `./run.sh`
 3. Open http://localhost:5000
-4. Without Firebase keys the app runs in **demo mode**: type any email on the login page to sign in.
-   (Demo mode has no password check — for real accounts, add the Firebase keys to `.env`.)
+4. Without Firebase keys the app runs in **demo mode** locally: type any email on the login page to sign in.
+   (Demo mode has no password check and is disabled in production — configure Firebase for real accounts.)
 5. To let other people join from other devices, set `APP_BASE_URL` in `.env` to an address they can reach
    (e.g. `http://192.168.1.10:5000`) and share a link of the form `/join/<meeting-id>`.
    Note: video/audio is local to each browser — the app does not stream between participants.
