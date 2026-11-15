@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}New Meeting — MeetFlow{% endblock %}
+
+{% block content %}
+<div class="flex-1 overflow-y-auto">
+    <div class="sticky top-0 bg-white border-b border-slate-200 z-10 px-8 py-4">
+        <h1 class="font-display font-bold text-slate-900 text-xl">Schedule New Meeting</h1>
+        <p class="text-sm text-slate-500">Set up your meeting and invite participants</p>
+    </div>
+
+    <div class="p-8 max-w-2xl">
+        <form action="{{ url_for('new_meeting') }}" method="POST" class="space-y-6">
+            <div class="bg-white rounded-2xl border border-slate-200 p-6 space-y-5">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Meeting Title *</label>
+                    <input type="text" name="title" required placeholder="Weekly Design Sync"
+                        class="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"/>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Date & Time *</label>
+                        <input type="datetime-local" name="scheduled_at" required
+                            class="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"/>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Duration (minutes)</label>
+                        <select name="duration_minutes" class="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:border-primary">
+                            <option value="30">30 minutes</option>
+                            <option value="60" selected>1 hour</option>
+                            <option value="90">1.5 hours</option>
+                            <option value="120">2 hours</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Participants -->
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Invite Participants</label>
+                    <div id="participantChips" class="flex flex-wrap gap-2 min-h-[48px] p-3 border border-slate-200 rounded-xl bg-slate-50 mb-2">
+                        <input type="text" id="participantInput" placeholder="Type email and press Enter…"
+                            class="flex-1 min-w-[200px] bg-transparent border-none focus:outline-none text-sm text-slate-900 placeholder-slate-400"
+                            onkeydown="addParticipantOnEnter(event)"/>
+                    </div>
+                    <p class="text-xs text-slate-400">Gmail invites will be sent to all participants after meeting creation</p>
+                </div>
+            </div>
+
+            <!-- AI Features Notice -->
+            <div class="flex items-start gap-4 p-5 rounded-2xl bg-primary/5 border border-primary/15">
+                <span class="msymbol msymbol-fill text-primary text-2xl mt-0.5">auto_awesome</span>
+                <div>
+                    <p class="font-semibold text-slate-900 mb-1">AI features will be enabled</p>
+                    <ul class="text-sm text-slate-600 space-y-1">
+                        <li class="flex items-center gap-2"><span class="msymbol text-green-500 text-base">check</span> Real-time key point extraction</li>
+                        <li class="flex items-center gap-2"><span class="msymbol text-green-500 text-base">check</span> Automatic meeting summary</li>
+                        <li class="flex items-center gap-2"><span class="msymbol text-green-500 text-base">check</span> Auto-save to Meeting Notes</li>
+                        <li class="flex items-center gap-2"><span class="msymbol text-green-500 text-base">check</span> Gmail invites to participants</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="flex gap-4">
+                <a href="{{ url_for('dashboard') }}" class="flex-1 py-3.5 text-center border border-slate-200 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 transition-all">Cancel</a>
+                <button type="submit" class="flex-1 py-3.5 bg-primary text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2">
+                    <span class="msymbol msymbol-fill text-xl">videocam</span>
+                    Start Meeting Now
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let participants = [];
+
+function addParticipantOnEnter(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const input = document.getElementById('participantInput');
+        const email = input.value.trim();
+        if (email && email.includes('@') && !participants.includes(email)) {
+            participants.push(email);
+            renderChips();
+            input.value = '';
+        }
+    }
+}
+
+function removeParticipant(email) {
+    participants = participants.filter(p => p !== email);
+    renderChips();
+}
+
+function renderChips() {
+    const container = document.getElementById('participantChips');
+    const input = document.getElementById('participantInput');
+
+    // Clear chips (keep input)
+    [...container.children].forEach(c => {
+        if (c !== input) c.remove();
+    });
+
+    // Add hidden inputs and chips
+    participants.forEach(email => {
+        const chip = document.createElement('div');
+        chip.className = 'flex items-center gap-1.5 bg-primary/10 text-primary px-3 py-1.5 rounded-lg text-xs font-semibold';
+        chip.innerHTML = `
+            <span class="msymbol text-sm">person</span>
+            ${email}
+            <input type="hidden" name="participants" value="${email}"/>
+            <button type="button" onclick="removeParticipant('${email}')" class="hover:text-primary-dark">
+                <span class="msymbol" style="font-size:14px">close</span>
+            </button>`;
+        container.insertBefore(chip, input);
+    });
+}
+</script>
+{% endblock %}

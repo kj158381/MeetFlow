@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Meeting Automation{% endblock %}
+{% block content %}
+<div class="flex-1 overflow-y-auto bg-bg-light">
+  <div class="sticky top-0 bg-white border-b border-slate-200 z-10 px-8 py-4 flex items-center justify-between">
+    <div>
+      <h1 class="font-display font-bold text-slate-900 text-xl">Dashboard</h1>
+      <p class="text-sm text-slate-500">Good {{ 'morning' if now < 12 else ('afternoon' if now < 17 else 'evening') }}, {{ user.name.split(' ')[0] }} 👋</p>
+    </div>
+    <div class="flex items-center gap-3">
+      {% if settings.smtp_enabled and settings.gmail_address %}
+      <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-green-50 border border-green-200">
+        <span class="size-2 rounded-full bg-green-500 animate-pulse"></span>
+        <span class="text-xs font-semibold text-green-700">Gmail Connected</span>
+      </div>
+      {% endif %}
+      <a href="{{ url_for('new_meeting') }}" class="flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-all shadow-sm shadow-primary/20">
+        <span class="msymbol text-xl">add</span>New Meeting
+      </a>
+    </div>
+  </div>
+
+  <div class="p-8 space-y-8 max-w-7xl mx-auto">
+    <!-- Stats -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-5">
+      {% set stats = [
+        ('Total Meetings', total_meetings, 'videocam', 'bg-blue-50', 'text-primary', '↑ All time'),
+        ('Completed', completed, 'check_circle', 'bg-green-50', 'text-green-600', 'Finished meetings'),
+        ('Open Tasks', tasks|length, 'check_box', 'bg-amber-50', 'text-amber-500', 'Action items'),
+        ('Emails Sent', emails_sent, 'mail', 'bg-purple-50', 'text-purple-500', 'Via Gmail SMTP'),
+      ] %}
+      {% for label, value, icon, bg, tc, sub in stats %}
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-sm font-medium text-slate-500">{{ label }}</span>
+          <div class="size-9 {{ bg }} rounded-xl flex items-center justify-center">
+            <span class="msymbol msymbol-fill {{ tc }} text-xl">{{ icon }}</span>
+          </div>
+        </div>
+        <p class="font-display text-3xl font-bold text-slate-900">{{ value }}</p>
+        <p class="text-xs text-slate-400 mt-1.5">{{ sub }}</p>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Feature pills -->
+    {% if settings %}
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      {% set features = [
+        ('feat_live_translation','translate','Live Translation',settings.translation_language|upper if settings.translation_language else 'ES','bg-blue-50 border-blue-100','text-blue-600'),
+        ('feat_calendar_sync','calendar_month','Calendar Sync','Active','bg-amber-50 border-amber-100','text-amber-600'),
+        ('feat_ai_summary','auto_awesome','AI Summary','Enabled','bg-purple-50 border-purple-100','text-purple-600'),
+        ('smtp_enabled','mail','Gmail SMTP','Connected' if settings.gmail_address else 'Setup','bg-green-50 border-green-100','text-green-600'),
+      ] %}
+      {% for field, icon, label, val, bg, tc in features %}
+      <div class="flex items-center gap-3 p-3 rounded-xl border {{ bg }} hover:shadow-sm transition-all cursor-pointer" onclick="window.location.href='{{ url_for('settings') }}'">
+        <span class="msymbol msymbol-fill {{ tc }} text-xl">{{ icon }}</span>
+        <div>
+          <p class="text-xs font-semibold text-slate-700">{{ label }}</p>
+          <p class="text-xs {{ 'text-green-600' if settings[field] else 'text-slate-400' }} font-medium">{{ val if settings[field] else 'Disabled' }}</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Recent Meetings -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-6">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="font-display font-bold text-slate-900">Recent Meetings</h2>
+          <a href="{{ url_for('calendar') }}" class="text-xs text-primary font-semibold hover:underline">View calendar →</a>
+        </div>
+        {% if meetings %}
+        <div class="space-y-2">
+          {% for m in meetings %}
+          <div class="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors group">
+            <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+              <span class="msymbol msymbol-fill text-primary text-xl">videocam</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold text-slate-900 text-sm truncate">{{ m.title }}</p>
+              <p class="text-xs text-slate-400">{{ (m.scheduled_at[:16].replace('T',' ')) if m.scheduled_at else 'No date' }}</p>
+            </div>
+            <span class="text-xs px-2 py-1 rounded-full font-semibold shrink-0
+              {% if m.status == 'completed' %}bg-green-100 text-green-700
+              {% elif m.status == 'live' %}bg-red-100 text-red-600 animate-pulse
+              {% else %}bg-blue-100 text-blue-700{% endif %}">
+              {{ m.status|capitalize }}
+            </span>
+            <a href="{{ url_for('live_meeting', mid=m.id) }}" class="opacity-0 group-hover:opacity-100 msymbol text-primary text-xl transition-opacity" title="Open">open_in_new</a>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-10">
+          <span class="msymbol text-slate-200 text-5xl">videocam_off</span>
+          <p class="text-slate-400 text-sm mt-2">No meetings yet</p>
+          <a href="{{ url_for('new_meeting') }}" class="mt-3 inline-flex items-center gap-1 text-primary text-sm font-semibold hover:underline">
+            <span class="msymbol text-base">add</span>Create your first meeting
+          </a>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Open Tasks -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-6">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="font-display font-bold text-slate-900">Open Tasks</h2>
+          <a href="{{ url_for('tasks') }}" class="text-xs text-primary font-semibold hover:underline">View all →</a>
+        </div>
+        {% if tasks %}
+        <div class="space-y-2">
+          {% for t in tasks %}
+          <div class="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors">
+            <div class="size-8 rounded-lg flex items-center justify-center shrink-0
+              {% if t.priority == 'high' %}bg-red-50{% elif t.priority == 'medium' %}bg-amber-50{% else %}bg-slate-100{% endif %}">
+              <span class="msymbol text-base
+                {% if t.priority == 'high' %}text-red-500{% elif t.priority == 'medium' %}text-amber-500{% else %}text-slate-400{% endif %}">
+                {% if t.priority == 'high' %}priority_high{% elif t.priority == 'medium' %}drag_handle{% else %}low_priority{% endif %}
+              </span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-slate-800 truncate">{{ t.title }}</p>
+              {% if t.due_date %}<p class="text-xs text-slate-400">Due: {{ t.due_date }}</p>{% endif %}
+            </div>
+            <span class="text-xs px-2 py-0.5 rounded-full font-medium
+              {% if t.status == 'in_progress' %}bg-blue-100 text-blue-700{% else %}bg-slate-100 text-slate-500{% endif %}">
+              {{ t.status.replace('_',' ')|title }}
+            </span>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-10">
+          <span class="msymbol text-slate-200 text-5xl">task_alt</span>
+          <p class="text-slate-400 text-sm mt-2">No open tasks</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Upcoming Meetings -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-6">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="font-display font-bold text-slate-900">Upcoming Meetings</h2>
+          <a href="{{ url_for('new_meeting') }}" class="text-xs text-primary font-semibold hover:underline">+ New →</a>
+        </div>
+        {% if upcoming %}
+        <div class="space-y-3">
+          {% for m in upcoming %}
+          <div class="flex items-start gap-4 p-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100">
+            <div class="size-10 rounded-xl bg-primary flex items-center justify-center shrink-0 text-white">
+              <span class="msymbol text-xl">event</span>
+            </div>
+            <div class="flex-1">
+              <p class="font-semibold text-slate-900 text-sm">{{ m.title }}</p>
+              <p class="text-xs text-slate-500 mt-0.5">{{ (m.scheduled_at[:16].replace('T',' ')) if m.scheduled_at else 'No date' }}</p>
+              <p class="text-xs text-primary mt-1">{{ m.duration_minutes }} min</p>
+            </div>
+            <a href="{{ url_for('live_meeting', mid=m.id) }}" class="text-xs px-3 py-1.5 bg-primary text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors">Join</a>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-8">
+          <span class="msymbol text-slate-200 text-4xl">event_upcoming</span>
+          <p class="text-slate-400 text-sm mt-2">No upcoming meetings</p>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Completed Tasks -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-6">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="font-display font-bold text-slate-900">Completed Tasks</h2>
+          <a href="{{ url_for('tasks') }}" class="text-xs text-primary font-semibold hover:underline">View all →</a>
+        </div>
+        {% if completed_tasks %}
+        <div class="space-y-2">
+          {% for t in completed_tasks %}
+          <div class="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors opacity-75">
+            <span class="msymbol msymbol-fill text-green-500 text-xl">check_circle</span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-slate-600 line-through truncate">{{ t.title }}</p>
+            </div>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Done</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-8">
+          <span class="msymbol text-slate-200 text-4xl">check_circle</span>
+          <p class="text-slate-400 text-sm mt-2">No completed tasks yet</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Join Meeting — MeetFlow</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#2563eb;--blue2:#7c3aed;--blue-glow:rgba(37,99,235,.45);
+  --green:#10b981;--green2:#34d399;--amber:#f59e0b;--red:#ef4444;
+  --dark:#04060e;--dark2:#080d1a;--card:rgba(255,255,255,.038);
+  --card2:rgba(255,255,255,.06);--border:rgba(255,255,255,.07);
+  --border2:rgba(255,255,255,.14);--text:#f1f5f9;--muted:#64748b;--muted2:rgba(241,245,249,.42);
+  --radius:18px;
+}
+html,body{height:100%;font-family:'Syne',sans-serif;background:var(--dark);color:var(--text)}
+body{min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden}
+.bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.bg-base{position:absolute;inset:0;background:var(--dark)}
+.bg-g1{position:absolute;width:900px;height:900px;border-radius:50%;background:radial-gradient(circle,rgba(37,99,235,.12) 0%,transparent 70%);top:-200px;left:-200px;animation:fA 18s ease-in-out infinite}
+.bg-g2{position:absolute;width:700px;height:700px;border-radius:50%;background:radial-gradient(circle,rgba(124,58,237,.09) 0%,transparent 70%);bottom:-150px;right:-100px;animation:fB 22s ease-in-out infinite}
+.bg-g3{position:absolute;width:500px;height:500px;border-radius:50%;background:radial-gradient(circle,rgba(16,185,129,.06) 0%,transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);animation:fC 15s ease-in-out infinite}
+.bg-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.016) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.016) 1px,transparent 1px);background-size:52px 52px;mask-image:radial-gradient(ellipse 100% 100% at 50% 50%,black 0%,transparent 80%)}
+@keyframes fA{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(40px,30px) scale(1.05)}}
+@keyframes fB{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-35px,25px) scale(1.08)}}
+@keyframes fC{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.15)}}
+.page{position:relative;z-index:1;flex:1;display:grid;grid-template-columns:1fr minmax(0,465px) 1fr;min-height:100vh;padding:2rem 1.5rem;gap:0}
+.col-left{grid-column:1;display:flex;flex-direction:column;justify-content:center;padding-right:2rem;gap:1rem}
+.col-main{grid-column:2;display:flex;flex-direction:column;gap:.875rem;padding:.5rem 0}
+.col-right{grid-column:3;display:flex;flex-direction:column;justify-content:center;padding-left:2rem;gap:1rem}
+.logo-row{display:flex;align-items:center;gap:.75rem;justify-content:center;margin-bottom:.25rem}
+.logo-mark{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--blue),var(--blue2));display:flex;align-items:center;justify-content:center;box-shadow:0 0 28px var(--blue-glow),0 0 60px rgba(37,99,235,.15)}
+.logo-name{font-size:1.2rem;font-weight:800;color:#fff;letter-spacing:-.04em}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);backdrop-filter:blur(20px);position:relative;overflow:hidden}
+.card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(37,99,235,.04) 0%,transparent 55%);pointer-events:none;border-radius:inherit}
+.hero-card{padding:1.75rem;animation:slideUp .5s cubic-bezier(.22,1,.36,1) both}
+@keyframes slideUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+.status-pill{display:inline-flex;align-items:center;gap:.45rem;font-size:.62rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:.3rem 1rem;border-radius:99px;margin-bottom:1.1rem}
+.pill-live{background:rgba(16,185,129,.12);color:var(--green2);border:1px solid rgba(16,185,129,.28)}
+.pill-scheduled{background:rgba(245,158,11,.1);color:#fbbf24;border:1px solid rgba(245,158,11,.22)}
+.pill-ended{background:rgba(100,116,139,.1);color:#94a3b8;border:1px solid rgba(100,116,139,.2)}
+.dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.dot-live{background:var(--green2);box-shadow:0 0 10px var(--green2);animation:blink 1.4s ease infinite}
+.dot-scheduled{background:#fbbf24}.dot-ended{background:#94a3b8}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.meeting-title{font-size:clamp(1.4rem,3.5vw,1.95rem);font-weight:900;color:#fff;letter-spacing:-.045em;line-height:1.15;margin-bottom:.5rem}
+.meeting-desc{font-size:.875rem;color:var(--muted2);line-height:1.65;margin-bottom:1.25rem}
+/* Attendance */
+.attend-bar{background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.15);border-radius:10px;padding:.75rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:.875rem}
+.attend-avatars{display:flex}
+.attend-av{width:26px;height:26px;border-radius:50%;border:2px solid var(--dark2);margin-left:-8px;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:800;color:#fff}
+.attend-av:first-child{margin-left:0}
+.attend-info{flex:1;font-size:.78rem;color:var(--muted2)}
+.attend-info strong{color:#fff}
+.attend-live-dot{width:7px;height:7px;border-radius:50%;background:var(--green2);box-shadow:0 0 8px var(--green2);animation:blink 1.4s ease infinite;flex-shrink:0}
+/* Countdown */
+.countdown-bar{background:rgba(37,99,235,.07);border:1px solid rgba(37,99,235,.16);border-radius:12px;padding:.9rem 1rem;margin-bottom:1.1rem;display:none}
+.countdown-label{font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.28);margin-bottom:.5rem}
+.countdown-digits{display:flex;align-items:center;gap:.5rem}
+.cd-block{text-align:center;min-width:46px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:.4rem .5rem}
+.cd-num{font-size:1.55rem;font-weight:800;color:#fff;font-family:'JetBrains Mono',monospace;line-height:1}
+.cd-unit{font-size:.52rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:.15rem}
+.cd-sep{font-size:1.25rem;font-weight:800;color:rgba(255,255,255,.2);margin-bottom:6px;animation:blink 1s ease infinite}
+/* Meta */
+.meta-strip{display:grid;grid-template-columns:1fr 1fr;gap:.625rem;margin-bottom:1.1rem}
+.meta-cell{background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:11px;padding:.75rem 1rem;transition:all .2s;cursor:default}
+.meta-cell:hover{background:rgba(255,255,255,.05);border-color:var(--border2)}
+.meta-key{font-size:.58rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem;display:flex;align-items:center;gap:.35rem}
+.meta-key .ms{font-size:13px}
+.meta-val{font-size:.875rem;font-weight:700;color:var(--text)}
+.meta-val.mono{font-family:'JetBrains Mono',monospace;font-size:.75rem}
+/* Signal */
+.signal-row{display:flex;align-items:center;gap:.625rem;padding:.625rem 1rem;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.14);border-radius:11px;margin-bottom:1rem}
+.signal-bars{display:flex;gap:2px;align-items:flex-end;height:16px}
+.signal-bar{width:4px;border-radius:2px;background:var(--green2)}
+.signal-bar:nth-child(1){height:6px}.signal-bar:nth-child(2){height:9px}.signal-bar:nth-child(3){height:13px}.signal-bar:nth-child(4){height:16px;opacity:.4}
+.signal-text{font-size:.75rem;color:rgba(16,185,129,.85);font-weight:600;flex:1}
+.sec-icons{display:flex;gap:.35rem}
+.sec-icon{width:22px;height:22px;border-radius:6px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2);display:flex;align-items:center;justify-content:center}
+.sec-icon .ms{font-size:13px;color:var(--green2)}
+/* Tabs */
+.tab-bar{display:flex;gap:2px;padding:3px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:14px;margin-bottom:.875rem}
+.tab-btn{flex:1;padding:.5rem .5rem;font-size:.72rem;font-weight:700;border:none;border-radius:11px;cursor:pointer;background:transparent;color:rgba(255,255,255,.3);transition:all .22s;font-family:'Syne',sans-serif;display:flex;align-items:center;justify-content:center;gap:.35rem;letter-spacing:.01em}
+.tab-btn .ms{font-size:14px}
+.tab-btn.active{background:linear-gradient(135deg,var(--blue),#3b82f6);color:#fff;box-shadow:0 3px 16px rgba(37,99,235,.45)}
+.tab-panel{display:none;animation:fadeSlide .28s cubic-bezier(.22,1,.36,1)}
+.tab-panel.active{display:block}
+@keyframes fadeSlide{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+/* AV */
+.av-wrap{border-radius:13px;overflow:hidden;background:#06090f;border:1px solid var(--border);margin-bottom:.875rem;position:relative;aspect-ratio:16/9}
+.av-video{width:100%;height:100%;object-fit:cover;display:block}
+.av-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5rem;background:linear-gradient(135deg,rgba(37,99,235,.05),rgba(124,58,237,.05))}
+.av-avatar{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue2));display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:900;color:#fff;box-shadow:0 0 24px var(--blue-glow)}
+.av-name-tag{font-size:.78rem;font-weight:700;color:rgba(255,255,255,.5)}
+.av-controls{position:absolute;bottom:.75rem;left:50%;transform:translateX(-50%);display:flex;gap:.5rem;background:rgba(0,0,0,.7);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.1);border-radius:99px;padding:.35rem .5rem}
+.av-btn{width:34px;height:34px;border-radius:50%;border:none;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;font-family:'Material Symbols Outlined';font-size:16px;font-style:normal;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;line-height:1;user-select:none}
+.av-btn:hover{background:rgba(255,255,255,.12);color:#fff}
+.av-btn.off{color:rgba(239,68,68,.85)}
+.av-btn.active{color:var(--green2)}
+.av-corner-tag{position:absolute;top:.6rem;left:.75rem;font-size:.57rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);padding:.2rem .6rem;border-radius:99px;color:rgba(255,255,255,.5)}
+/* BG Effects */
+.bg-effects{display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem;margin-bottom:.875rem}
+.bg-effect-btn{padding:.5rem .3rem;background:rgba(255,255,255,.035);border:1px solid var(--border);border-radius:9px;color:rgba(255,255,255,.45);font-size:.65rem;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:.3rem;transition:all .2s;font-family:'Syne',sans-serif}
+.bg-effect-btn .ms{font-size:16px}
+.bg-effect-btn:hover{background:rgba(255,255,255,.08);border-color:var(--border2);color:#fff}
+.bg-effect-btn.active{background:rgba(37,99,235,.15);border-color:rgba(37,99,235,.4);color:#93c5fd}
+/* Toggle */
+.noise-toggle{display:flex;align-items:center;justify-content:space-between;padding:.625rem .875rem;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;margin-bottom:.4rem}
+.noise-toggle-left{display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--muted2)}
+.noise-toggle-left .ms{font-size:16px;color:#60a5fa}
+.toggle-sw{width:36px;height:20px;border-radius:99px;background:rgba(255,255,255,.12);border:none;cursor:pointer;position:relative;transition:all .22s;flex-shrink:0}
+.toggle-sw.on{background:var(--green)}
+.toggle-sw::after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform .2s;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.toggle-sw.on::after{transform:translateX(16px)}
+/* Quality */
+.quality-row{display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem;margin-bottom:.875rem}
+.q-btn{padding:.5rem;background:rgba(255,255,255,.035);border:1px solid var(--border);border-radius:9px;color:rgba(255,255,255,.4);font-size:.68rem;font-weight:700;cursor:pointer;text-align:center;transition:all .2s;font-family:'Syne',sans-serif}
+.q-btn.active{background:rgba(37,99,235,.15);border-color:rgba(37,99,235,.4);color:#93c5fd}
+.q-btn:hover:not(.active){background:rgba(255,255,255,.07);color:rgba(255,255,255,.7)}
+/* Device select */
+.device-row{display:flex;gap:.5rem;margin-bottom:.75rem}
+.device-select{flex:1;position:relative}
+.device-select select{width:100%;padding:.55rem .875rem .55rem 2.2rem;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;color:rgba(255,255,255,.7);font-size:.75rem;font-family:'Syne',sans-serif;outline:none;-webkit-appearance:none;transition:all .2s;cursor:pointer}
+.device-select select:focus{border-color:var(--blue);background:rgba(37,99,235,.07)}
+.device-select select option{background:#0a0f1e;color:#fff}
+.device-select-icon{position:absolute;left:.6rem;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.3);font-family:'Material Symbols Outlined';font-size:15px;font-style:normal;line-height:1;pointer-events:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24}
+/* Mic meter */
+.mic-wrap{margin-bottom:.875rem}
+.mic-label{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem;display:flex;justify-content:space-between;align-items:center}
+.mic-track{height:6px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden}
+.mic-fill{height:100%;width:0%;border-radius:99px;transition:width .08s;background:linear-gradient(90deg,#34d399,#10b981)}
+/* Fields */
+.field-label{font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.32);display:block;margin-bottom:.4rem}
+.field-wrap{position:relative}
+.field-wrap input,.field-wrap select{width:100%;padding:.68rem 1rem .68rem 2.6rem;background:rgba(255,255,255,.045);border:1px solid var(--border);border-radius:11px;color:#fff;font-size:.875rem;font-family:'Syne',sans-serif;outline:none;transition:all .2s;-webkit-appearance:none}
+.field-wrap input:focus,.field-wrap select:focus{border-color:var(--blue);background:rgba(37,99,235,.08);box-shadow:0 0 0 3px rgba(37,99,235,.14)}
+.field-wrap input::placeholder{color:rgba(255,255,255,.18)}
+.field-wrap select option{background:#0a0f1e;color:#fff}
+.field-icon{position:absolute;left:.8rem;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.22);font-size:16px;pointer-events:none;font-family:'Material Symbols Outlined';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;font-style:normal;line-height:1}
+/* Intent badge */
+.join-intent{display:flex;align-items:center;justify-content:space-between;padding:.5rem .875rem;background:rgba(37,99,235,.07);border:1px solid rgba(37,99,235,.15);border-radius:10px;margin-bottom:.75rem;font-size:.75rem}
+.join-intent-label{color:rgba(255,255,255,.45);font-weight:600}
+.join-intent-badge{display:flex;align-items:center;gap:.35rem;color:#93c5fd;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:.7rem}
+/* Action pills */
+.action-pills{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.875rem;justify-content:center}
+.action-pill{display:flex;align-items:center;gap:.35rem;padding:.35rem .75rem;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:99px;font-size:.68rem;font-weight:700;color:rgba(255,255,255,.45);cursor:pointer;transition:all .2s;font-family:'Syne',sans-serif}
+.action-pill:hover{background:rgba(255,255,255,.09);border-color:var(--border2);color:#fff}
+.action-pill .ms{font-size:14px}
+/* Buttons */
+.btn-join{width:100%;padding:.9rem 1rem;background:linear-gradient(135deg,var(--blue),#3b82f6);color:#fff;font-weight:800;font-size:1rem;border:none;border-radius:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.625rem;transition:all .22s;box-shadow:0 6px 30px rgba(37,99,235,.5);font-family:'Syne',sans-serif;text-decoration:none;letter-spacing:-.01em}
+.btn-join:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 12px 40px rgba(37,99,235,.6)}
+.btn-join:active:not(:disabled){transform:translateY(0)}
+.btn-join:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-secondary{width:100%;padding:.72rem 1rem;background:rgba(255,255,255,.05);color:var(--text);font-weight:700;font-size:.875rem;border:1px solid var(--border);border-radius:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.5rem;transition:all .2s;font-family:'Syne',sans-serif;text-decoration:none;margin-top:.625rem}
+.btn-secondary:hover{background:rgba(255,255,255,.09);border-color:var(--border2)}
+/* Share */
+.share-row{display:flex;gap:.5rem;margin-top:.875rem}
+.share-btn{flex:1;padding:.55rem .4rem;background:rgba(255,255,255,.035);border:1px solid var(--border);border-radius:10px;color:var(--muted2);font-size:.68rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.3rem;transition:all .2s;font-family:'Syne',sans-serif;white-space:nowrap}
+.share-btn:hover{background:rgba(255,255,255,.09);border-color:var(--border2);color:#fff}
+.share-btn .ms{font-size:14px}
+/* Side */
+.side-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.25rem;backdrop-filter:blur(14px);animation:slideUp .5s cubic-bezier(.22,1,.36,1) both}
+.side-card:nth-child(2){animation-delay:.08s}.side-card:nth-child(3){animation-delay:.16s}
+.side-title{font-size:.63rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.875rem;display:flex;align-items:center;gap:.5rem}
+.side-title .ms{font-size:15px;color:var(--blue)}
+/* Participants */
+.part-item{display:flex;align-items:center;gap:.625rem;padding:.4rem 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.part-item:last-child{border-bottom:none}
+.part-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:800;color:#fff;flex-shrink:0}
+.part-name{font-size:.8rem;color:rgba(255,255,255,.75);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.part-role{font-size:.58rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:.12rem .45rem;border-radius:99px}
+.role-host{background:rgba(37,99,235,.15);color:#93c5fd;border:1px solid rgba(37,99,235,.25)}
+.role-presenter{background:rgba(245,158,11,.1);color:#fbbf24;border:1px solid rgba(245,158,11,.2)}
+.part-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.dot-online{background:var(--green2);box-shadow:0 0 6px var(--green2);animation:blink 2s ease infinite}
+.dot-away{background:#fbbf24}
+/* Agenda */
+.agenda-item{display:flex;gap:.625rem;align-items:flex-start;padding:.5rem 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.agenda-item:last-child{border-bottom:none}
+.agenda-num{width:20px;height:20px;border-radius:6px;background:rgba(37,99,235,.15);border:1px solid rgba(37,99,235,.25);display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:800;color:#93c5fd;flex-shrink:0;margin-top:1px}
+.agenda-text{font-size:.78rem;color:var(--muted2);flex:1;line-height:1.4;font-weight:500}
+.agenda-dur{font-size:.65rem;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:.1rem}
+/* Network */
+.net-card{padding:.875rem;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:12px}
+.net-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;font-size:.75rem}
+.net-row:last-child{margin-bottom:0}
+.net-label{color:var(--muted);font-weight:500}
+.net-val{font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.net-good{color:var(--green2)}.net-warn{color:#fbbf24}.net-bad{color:#f87171}
+.net-bar{height:3px;background:rgba(255,255,255,.06);border-radius:99px;margin:.3rem 0;overflow:hidden}
+.net-bar-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--green2),#10b981)}
+/* Error / Toast / Misc */
+.err-box{display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);border-radius:10px;padding:.625rem .875rem;font-size:.8rem;color:#fca5a5;margin-bottom:.75rem}
+.toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%) translateY(90px);z-index:999;background:#0d1424;border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:.75rem 1.25rem;font-size:.825rem;font-weight:600;color:#fff;display:flex;align-items:center;gap:.625rem;box-shadow:0 20px 60px rgba(0,0,0,.6);transition:transform .38s cubic-bezier(.22,1,.36,1),opacity .3s;opacity:0;font-family:'Syne',sans-serif}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast .ms{font-size:18px}
+.or-row{display:flex;align-items:center;gap:.75rem;margin:.875rem 0}
+.or-row::before,.or-row::after{content:'';flex:1;height:1px;background:var(--border)}
+.or-row span{font-size:.62rem;color:rgba(255,255,255,.18);font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.ended-box{text-align:center;padding:1.5rem 1rem}
+.ended-icon{width:64px;height:64px;border-radius:50%;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.2);display:flex;align-items:center;justify-content:center;margin:0 auto .875rem}
+.ended-icon .ms{font-size:28px;color:#64748b}
+.ms{font-family:'Material Symbols Outlined';line-height:1;vertical-align:middle;font-style:normal;user-select:none;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .75s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.footer-txt{grid-column:2;text-align:center;font-size:.62rem;color:rgba(255,255,255,.1);padding:.5rem 0}
+.viz-bars{display:flex;gap:3px;align-items:flex-end;height:22px;margin-bottom:.875rem;justify-content:center}
+.viz-bar{width:4px;border-radius:2px;background:rgba(255,255,255,.1);transition:height .08s,background .08s}
+@media(max-width:940px){.page{grid-template-columns:1fr;padding:1.25rem 1rem}.col-left,.col-right{display:none}.col-main{grid-column:1}.footer-txt{grid-column:1}}
+@media(max-width:480px){.meta-strip{grid-template-columns:1fr}.share-row{flex-wrap:wrap}.device-row{flex-direction:column}.bg-effects{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="bg">
+  <div class="bg-base"></div><div class="bg-g1"></div><div class="bg-g2"></div><div class="bg-g3"></div><div class="bg-grid"></div>
+</div>
+
+<div class="page">
+
+<!-- ═══ LEFT ═══ -->
+<div class="col-left">
+  <div class="side-card">
+    <div class="side-title"><span class="ms">security</span>Security</div>
+    <div style="display:flex;flex-direction:column;gap:.625rem">
+      <div style="display:flex;align-items:center;gap:.625rem;font-size:.8rem;color:var(--muted2)"><span class="ms" style="font-size:16px;color:var(--green2)">lock</span>End-to-end encrypted (AES-256)</div>
+      <div style="display:flex;align-items:center;gap:.625rem;font-size:.8rem;color:var(--muted2)"><span class="ms" style="font-size:16px;color:var(--green2)">verified_user</span>Host identity verified</div>
+      <div style="display:flex;align-items:center;gap:.625rem;font-size:.8rem;color:var(--muted2)"><span class="ms" style="font-size:16px;color:var(--green2)">shield</span>Private room — invite only</div>
+      <div style="display:flex;align-items:center;gap:.625rem;font-size:.8rem;color:var(--muted2)"><span class="ms" style="font-size:16px;color:var(--green2)">policy</span>GDPR & SOC 2 compliant</div>
+    </div>
+  </div>
+  <div class="side-card">
+    <div class="side-title"><span class="ms">network_check</span>Network Status</div>
+    <div class="net-card">
+      <div class="net-row"><span class="net-label">Connection</span><span class="net-val net-good" id="connType">Checking…</span></div>
+      <div class="net-bar"><div class="net-bar-fill" id="connBar" style="width:0%"></div></div>
+      <div class="net-row"><span class="net-label">Latency</span><span class="net-val" id="latency">—</span></div>
+      <div class="net-row"><span class="net-label">Bandwidth</span><span class="net-val" id="bandwidth">—</span></div>
+      <div class="net-row"><span class="net-label">WebRTC</span><span class="net-val" id="webrtcStatus">—</span></div>
+    </div>
+  </div>
+  <div class="side-card">
+    <div class="side-title"><span class="ms">info</span>Room Info</div>
+    <div style="display:flex;flex-direction:column;gap:.5rem">
+      <div style="font-size:.78rem;color:var(--muted2)">Platform: <span style="color:#fff;font-weight:700">MeetFlow Web</span></div>
+      <div style="font-size:.78rem;color:var(--muted2)">AI Notes: <span style="color:var(--green2);font-weight:700">Active</span></div>
+      <div style="font-size:.78rem;color:var(--muted2)">Recording: <span style="color:#fbbf24;font-weight:700">Optional</span></div>
+      <div style="font-size:.78rem;color:var(--muted2)">Max Participants: <span style="color:#fff;font-weight:700">100</span></div>
+      <div style="font-size:.78rem;color:var(--muted2)">Codec: <span style="color:#fff;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:.72rem">VP9 / H.264</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MAIN ═══ -->
+<div class="col-main">
+  <div class="logo-row">
+    <div class="logo-mark">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <path d="M12 2L2 7l10 5 10-5-10-5z" fill="white" opacity=".95"/>
+        <path d="M2 17l10 5 10-5" stroke="white" stroke-width="2" stroke-linecap="round" opacity=".65"/>
+        <path d="M2 12l10 5 10-5" stroke="white" stroke-width="2" stroke-linecap="round" opacity=".85"/>
+      </svg>
+    </div>
+    <span class="logo-name">MeetFlow</span>
+  </div>
+
+  <div class="card hero-card">
+    {% if meeting.status == 'completed' %}
+    <div class="status-pill pill-ended"><div class="dot dot-ended"></div>Meeting Ended</div>
+    {% elif meeting.status == 'live' %}
+    <div class="status-pill pill-live"><div class="dot dot-live"></div>Live Right Now</div>
+    {% else %}
+    <div class="status-pill pill-scheduled"><div class="dot dot-scheduled"></div>Upcoming</div>
+    {% endif %}
+
+    <h1 class="meeting-title">{{ meeting.title }}</h1>
+    <p class="meeting-desc">You've been invited to join this MeetFlow meeting. Configure your camera, audio, and preferences — then join when ready.</p>
+
+    {% if meeting.status == 'live' %}
+    <div class="attend-bar">
+      <div class="attend-live-dot"></div>
+      <div class="attend-avatars">
+        <div class="attend-av" style="background:#2563eb">A</div>
+        <div class="attend-av" style="background:#7c3aed">B</div>
+        <div class="attend-av" style="background:#059669">C</div>
+      </div>
+      <div class="attend-info"><strong id="attendCount">{{ meeting.participants|length if meeting.participants else 3 }}</strong> participants in the room</div>
+    </div>
+    {% endif %}
+
+    <div class="countdown-bar" id="countdownBar">
+      <div class="countdown-label">Meeting starts in</div>
+      <div class="countdown-digits">
+        <div class="cd-block"><div class="cd-num" id="cdDays">00</div><div class="cd-unit">Days</div></div>
+        <div class="cd-sep">:</div>
+        <div class="cd-block"><div class="cd-num" id="cdHours">00</div><div class="cd-unit">Hrs</div></div>
+        <div class="cd-sep">:</div>
+        <div class="cd-block"><div class="cd-num" id="cdMins">00</div><div class="cd-unit">Min</div></div>
+        <div class="cd-sep">:</div>
+        <div class="cd-block"><div class="cd-num" id="cdSecs">00</div><div class="cd-unit">Sec</div></div>
+      </div>
+    </div>
+
+    <div class="meta-strip">
+      <div class="meta-cell">
+        <div class="meta-key"><span class="ms">schedule</span>Date & Time</div>
+        <div class="meta-val" id="meetingTime">{% if meeting.scheduled_at %}{{ meeting.scheduled_at[:16].replace('T',' ') }}{% else %}Now{% endif %}</div>
+      </div>
+      <div class="meta-cell">
+        <div class="meta-key"><span class="ms">timer</span>Duration</div>
+        <div class="meta-val">{{ meeting.duration_minutes }} min</div>
+      </div>
+      <div class="meta-cell">
+        <div class="meta-key"><span class="ms">tag</span>Meeting ID</div>
+        <div class="meta-val mono">{{ mid[:8] }}…</div>
+      </div>
+      <div class="meta-cell">
+        <div class="meta-key"><span class="ms">bar_chart</span>Status</div>
+        <div class="meta-val">
+          {% if meeting.status == 'completed' %}<span style="color:#64748b">Ended</span>
+          {% elif meeting.status == 'live' %}<span style="color:var(--green2)">● Live</span>
+          {% else %}<span style="color:#fbbf24">⏰ Scheduled</span>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="signal-row">
+      <div class="signal-bars">
+        <div class="signal-bar"></div><div class="signal-bar"></div><div class="signal-bar"></div>
+        <div class="signal-bar" id="sig4" style="opacity:.35"></div>
+      </div>
+      <span class="signal-text" id="signalText">Checking connection…</span>
+      <div class="sec-icons">
+        <div class="sec-icon"><span class="ms">lock</span></div>
+        <div class="sec-icon"><span class="ms">verified_user</span></div>
+      </div>
+    </div>
+
+    {% if meeting.status == 'completed' %}
+    <div class="ended-box">
+      <div class="ended-icon"><span class="ms">videocam_off</span></div>
+      <p style="font-size:.95rem;font-weight:800;color:#94a3b8;margin-bottom:.375rem">This meeting has ended</p>
+      <p style="font-size:.8rem;color:rgba(255,255,255,.25);line-height:1.6">The host ended this session. Contact them for notes or a recording link.</p>
+      <a href="/" class="btn-secondary" style="max-width:220px;margin:.875rem auto 0"><span class="ms">home</span>Back to Home</a>
+    </div>
+
+    {% else %}
+    {% if user %}
+    <!-- LOGGED IN -->
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('Camera',this)"><span class="ms">videocam</span>Camera</button>
+      <button class="tab-btn" onclick="switchTab('Audio',this)"><span class="ms">mic</span>Audio</button>
+      <button class="tab-btn" onclick="switchTab('Settings',this)"><span class="ms">tune</span>Settings</button>
+    </div>
+
+    <!-- CAMERA TAB -->
+    <div id="tabCamera" class="tab-panel active">
+      <div class="av-wrap">
+        <video id="avVideo" class="av-video" autoplay muted playsinline style="display:none"></video>
+        <div class="av-placeholder" id="avPH">
+          <div class="av-avatar">{{ user.name[0]|upper if user.name else 'U' }}</div>
+          <div class="av-name-tag">{{ user.name }}</div>
+        </div>
+        <div class="av-corner-tag">Camera Preview</div>
+        <div class="av-controls">
+          <button class="av-btn off" id="camBtn" onclick="toggleCam()" title="Toggle Camera">videocam_off</button>
+          <button class="av-btn off" id="micBtn" onclick="toggleMic()" title="Toggle Mic">mic_off</button>
+          <button class="av-btn" onclick="flipCamera()" title="Flip Camera">flip_camera_ios</button>
+          <button class="av-btn" id="blurBtn" onclick="toggleBlur()" title="Background">blur_on</button>
+          <button class="av-btn" id="snapBtn" onclick="takeSnapshot()" title="Snapshot" style="display:none">photo_camera</button>
+        </div>
+      </div>
+      <div style="font-size:.62rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.25);margin-bottom:.5rem">Background Effect</div>
+      <div class="bg-effects">
+        <button class="bg-effect-btn active" id="bg-none" onclick="setBg('none',this)"><span class="ms">videocam</span>None</button>
+        <button class="bg-effect-btn" id="bg-blur" onclick="setBg('blur',this)"><span class="ms">blur_on</span>Blur</button>
+        <button class="bg-effect-btn" id="bg-office" onclick="setBg('office',this)"><span class="ms">apartment</span>Office</button>
+        <button class="bg-effect-btn" id="bg-space" onclick="setBg('space',this)"><span class="ms">rocket_launch</span>Space</button>
+      </div>
+      <div class="device-row">
+        <div class="device-select">
+          <span class="device-select-icon">videocam</span>
+          <select id="camSelect" onchange="changeCam()"><option value="">Default Camera</option></select>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUDIO TAB -->
+    <div id="tabAudio" class="tab-panel">
+      <div class="mic-wrap">
+        <div class="mic-label"><span>Microphone Level</span><span id="micStatus" style="color:var(--muted)">Off</span></div>
+        <div class="mic-track"><div class="mic-fill" id="micBar"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:.6rem;color:rgba(255,255,255,.2);margin-top:.3rem"><span>Silent</span><span>Good</span><span>Too Loud</span></div>
+      </div>
+      <div class="viz-bars" id="vizBars">
+        <div class="viz-bar" style="height:4px"></div><div class="viz-bar" style="height:4px"></div>
+        <div class="viz-bar" style="height:4px"></div><div class="viz-bar" style="height:4px"></div>
+        <div class="viz-bar" style="height:4px"></div><div class="viz-bar" style="height:4px"></div>
+        <div class="viz-bar" style="height:4px"></div><div class="viz-bar" style="height:4px"></div>
+        <div class="viz-bar" style="height:4px"></div><div class="viz-bar" style="height:4px"></div>
+        <div class="viz-bar" style="height:4px"></div><div class="viz-bar" style="height:4px"></div>
+        <div class="viz-bar" style="height:4px"></div><div class="viz-bar" style="height:4px"></div>
+        <div class="viz-bar" style="height:4px"></div><div class="viz-bar" style="height:4px"></div>
+      </div>
+      <div class="device-row">
+        <div class="device-select">
+          <span class="device-select-icon">mic</span>
+          <select id="micSelect" onchange="changeMic()"><option value="">Default Microphone</option></select>
+        </div>
+        <div class="device-select">
+          <span class="device-select-icon">volume_up</span>
+          <select id="spkSelect"><option value="">Default Speaker</option></select>
+        </div>
+      </div>
+      <div class="noise-toggle">
+        <div class="noise-toggle-left"><span class="ms">noise_control_off</span>AI Noise Cancellation</div>
+        <button class="toggle-sw on" id="noiseToggle" onclick="toggleNoise(this)"></button>
+      </div>
+      <div class="noise-toggle">
+        <div class="noise-toggle-left"><span class="ms">music_note</span>Echo Suppression</div>
+        <button class="toggle-sw on" onclick="toggleSw(this)"></button>
+      </div>
+      <div class="noise-toggle">
+        <div class="noise-toggle-left"><span class="ms">hearing</span>Auto Gain Control</div>
+        <button class="toggle-sw" onclick="toggleSw(this)"></button>
+      </div>
+    </div>
+
+    <!-- SETTINGS TAB -->
+    <div id="tabSettings" class="tab-panel">
+      <div style="font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.28);margin-bottom:.5rem">Video Quality</div>
+      <div class="quality-row">
+        <button class="q-btn" onclick="setQuality('480p',this)">480p<br><span style="font-size:.58rem;opacity:.6">Saves data</span></button>
+        <button class="q-btn active" onclick="setQuality('720p',this)">720p<br><span style="font-size:.58rem;opacity:.6">HD (Rec.)</span></button>
+        <button class="q-btn" onclick="setQuality('1080p',this)">1080p<br><span style="font-size:.58rem;opacity:.6">Full HD</span></button>
+      </div>
+      <div style="display:flex;gap:.625rem;margin-bottom:.75rem;margin-top:.75rem">
+        <div style="flex:1">
+          <label class="field-label">Display Name</label>
+          <div class="field-wrap"><span class="field-icon">person</span><input type="text" id="displayName" value="{{ user.name }}" oninput="syncName()"/></div>
+        </div>
+        <div style="flex:1">
+          <label class="field-label">Join As</label>
+          <div class="field-wrap"><span class="field-icon">badge</span>
+            <select id="joinRole">
+              <option value="attendee">Attendee</option>
+              <option value="presenter">Presenter</option>
+              <option value="observer">Observer</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="join-intent">
+        <span class="join-intent-label">Joining as</span>
+        <span class="join-intent-badge"><span class="ms" style="font-size:14px">person</span><span id="intentName">{{ user.name }}</span></span>
+      </div>
+      <div class="noise-toggle">
+        <div class="noise-toggle-left"><span class="ms">smart_toy</span>AI Notetaker</div>
+        <button class="toggle-sw on" onclick="toggleSw(this)"></button>
+      </div>
+      <div class="noise-toggle">
+        <div class="noise-toggle-left"><span class="ms">closed_caption</span>Live Captions (Beta)</div>
+        <button class="toggle-sw" onclick="toggleSw(this)"></button>
+      </div>
+      <div class="noise-toggle">
+        <div class="noise-toggle-left"><span class="ms">fiber_smart_record</span>Auto-record meeting</div>
+        <button class="toggle-sw" onclick="toggleSw(this)"></button>
+      </div>
+    </div>
+
+    <p style="font-size:.73rem;color:rgba(255,255,255,.25);text-align:center;margin:.5rem 0 .75rem">
+      Joining as <strong style="color:rgba(255,255,255,.55)">{{ user.name }}</strong> &nbsp;·&nbsp; {{ user.email }}
+    </p>
+
+    <div class="action-pills">
+      <div class="action-pill" onclick="showToast('Raise hand available during meeting','info','back_hand')"><span class="ms">back_hand</span>Raise Hand</div>
+      <div class="action-pill" onclick="showToast('Reactions available during meeting','info','sentiment_very_satisfied')"><span class="ms">sentiment_very_satisfied</span>Reactions</div>
+      <div class="action-pill" onclick="copyId()"><span class="ms">tag</span>Copy ID</div>
+      <div class="action-pill" onclick="shareCalendar()"><span class="ms">event</span>Add to Calendar</div>
+    </div>
+
+    <a href="{{ live_url }}" class="btn-join"><span class="ms" style="font-size:20px">videocam</span>Join Meeting Now</a>
+
+    {% else %}
+    <!-- GUEST / TABS -->
+    <div class="tab-bar" style="margin-bottom:.875rem">
+      <button class="tab-btn active" onclick="switchTab('Signin',this)"><span class="ms">login</span>Sign In</button>
+      <button class="tab-btn" onclick="switchTab('Guest',this)"><span class="ms">person</span>Guest</button>
+      <button class="tab-btn" onclick="switchTab('Preview',this)"><span class="ms">videocam</span>AV Test</button>
+    </div>
+
+    <div id="tabSignin" class="tab-panel active">
+      <p style="font-size:.85rem;color:var(--muted2);margin-bottom:1rem;line-height:1.65">Sign in for full access — camera, mic, AI notes, and meeting history.</p>
+      <a href="/login?next=/meeting/{{ mid }}/live" class="btn-join"><span class="ms" style="font-size:20px">login</span>Sign In & Join</a>
+      <div class="or-row"><span>or</span></div>
+      <a href="/login?next=/meeting/{{ mid }}/live" class="btn-secondary">
+        <svg width="16" height="16" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+        Continue with Google
+      </a>
+    </div>
+
+    <div id="tabGuest" class="tab-panel">
+      <p style="font-size:.825rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.65">Join without an account. Camera & mic available; AI features limited.</p>
+      <div class="av-wrap" style="margin-bottom:.75rem">
+        <video id="guestVideo" class="av-video" autoplay muted playsinline style="display:none"></video>
+        <div class="av-placeholder" id="guestPH"><span class="ms" style="font-size:36px;color:var(--muted)">person</span><div style="font-size:.75rem;color:var(--muted);margin-top:.25rem">Enable camera to preview</div></div>
+        <div class="av-corner-tag">Guest Preview</div>
+        <div class="av-controls">
+          <button class="av-btn off" id="gCamBtn" onclick="toggleGuestCam()" title="Camera">videocam_off</button>
+          <button class="av-btn off" id="gMicBtn" onclick="toggleGuestMic()" title="Mic">mic_off</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:.5rem;margin-bottom:.625rem">
+        <div style="flex:1">
+          <label class="field-label">Full Name <span style="color:var(--red)">*</span></label>
+          <div class="field-wrap"><span class="field-icon">person</span><input type="text" id="guestName" placeholder="Your full name" autocomplete="name"/></div>
+        </div>
+        <div style="flex:1">
+          <label class="field-label">Role</label>
+          <div class="field-wrap"><span class="field-icon">badge</span>
+            <select id="guestRole"><option value="attendee">Attendee</option><option value="observer">Observer</option></select>
+          </div>
+        </div>
+      </div>
+      <div style="margin-bottom:.625rem">
+        <label class="field-label">Email <span style="font-size:.6rem;color:var(--muted)">(optional — for meeting summary)</span></label>
+        <div class="field-wrap"><span class="field-icon">mail</span><input type="email" id="guestEmail" placeholder="you@email.com" autocomplete="email"/></div>
+      </div>
+      <div class="mic-wrap">
+        <div class="mic-label"><span>Mic Level</span><span id="gMicStatus" style="color:var(--muted)">Off</span></div>
+        <div class="mic-track"><div class="mic-fill" id="gMicBar"></div></div>
+      </div>
+      <div class="err-box" id="guestErr"></div>
+      <button onclick="joinAsGuest()" class="btn-join" id="guestBtn"><span class="ms" style="font-size:20px">videocam</span><span id="guestBtnTxt">Join as Guest</span></button>
+    </div>
+
+    <div id="tabPreview" class="tab-panel">
+      <p style="font-size:.825rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.65">Test your camera and microphone before joining.</p>
+      <div class="av-wrap" style="margin-bottom:.75rem">
+        <video id="previewVid" class="av-video" autoplay muted playsinline style="display:none"></video>
+        <div class="av-placeholder" id="previewPH"><span class="ms" style="font-size:38px;color:var(--muted)">videocam_off</span><div style="font-size:.78rem;color:var(--muted);margin-top:.25rem">Camera off</div></div>
+        <div class="av-corner-tag">AV Test</div>
+        <div class="av-controls">
+          <button class="av-btn off" id="pvCamBtn" onclick="togglePreviewCam()" title="Camera">videocam_off</button>
+          <button class="av-btn off" id="pvMicBtn" onclick="togglePreviewMic()" title="Mic">mic_off</button>
+        </div>
+      </div>
+      <div class="mic-wrap" style="margin-bottom:.75rem">
+        <div class="mic-label"><span>Mic Level</span><span id="pvMicStatus" style="color:var(--muted)">Off</span></div>
+        <div class="mic-track"><div class="mic-fill" id="pvMicBar"></div></div>
+      </div>
+      <div style="display:flex;gap:.5rem;margin-bottom:.875rem">
+        <div style="flex:1;text-align:center;padding:.625rem;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:10px">
+          <div class="ms" id="camCheck" style="font-size:20px;color:var(--muted)">videocam_off</div>
+          <div style="font-size:.65rem;color:var(--muted);margin-top:.25rem;font-weight:700">Camera</div>
+        </div>
+        <div style="flex:1;text-align:center;padding:.625rem;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:10px">
+          <div class="ms" id="micCheck" style="font-size:20px;color:var(--muted)">mic_off</div>
+          <div style="font-size:.65rem;color:var(--muted);margin-top:.25rem;font-weight:700">Microphone</div>
+        </div>
+        <div style="flex:1;text-align:center;padding:.625rem;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:10px">
+          <div class="ms" id="netCheck" style="font-size:20px;color:var(--green2)">wifi</div>
+          <div style="font-size:.65rem;color:var(--muted);margin-top:.25rem;font-weight:700">Network</div>
+        </div>
+      </div>
+      <a href="/login?next=/meeting/{{ mid }}/live" class="btn-join"><span class="ms" style="font-size:20px">login</span>Sign In to Join</a>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    <div class="share-row">
+      <button class="share-btn" onclick="copyLink()" id="copyBtn"><span class="ms">link</span>Copy</button>
+      <button class="share-btn" onclick="shareWhatsApp()"><span class="ms">chat</span>WhatsApp</button>
+      <button class="share-btn" onclick="shareEmail()"><span class="ms">mail</span>Email</button>
+      <button class="share-btn" onclick="shareCalendar()"><span class="ms">event</span>Calendar</button>
+      <button class="share-btn" onclick="copyId()"><span class="ms">tag</span>ID</button>
+    </div>
+  </div>
+
+  <p class="footer-txt">© 2025 MeetFlow · Secure & encrypted · AES-256</p>
+</div>
+
+<!-- ═══ RIGHT ═══ -->
+<div class="col-right">
+  <div class="side-card">
+    <div class="side-title"><span class="ms">group</span>Participants<span style="margin-left:auto;font-size:.65rem;font-weight:800;background:rgba(37,99,235,.15);color:#93c5fd;padding:.12rem .5rem;border-radius:99px;border:1px solid rgba(37,99,235,.25)" id="partCount">0</span></div>
+    <div id="participantsList"><div style="font-size:.8rem;color:var(--muted)">No participants yet</div></div>
+  </div>
+  <div class="side-card">
+    <div class="side-title"><span class="ms">list_alt</span>Agenda</div>
+    <div class="agenda-item"><div class="agenda-num">1</div><div><div class="agenda-text">Welcome & introductions</div><div class="agenda-dur">5 min</div></div></div>
+    <div class="agenda-item"><div class="agenda-num">2</div><div><div class="agenda-text">Review key topics</div><div class="agenda-dur">15 min</div></div></div>
+    <div class="agenda-item"><div class="agenda-num">3</div><div><div class="agenda-text">Discussion & Q&A</div><div class="agenda-dur">20 min</div></div></div>
+    <div class="agenda-item"><div class="agenda-num">4</div><div><div class="agenda-text">Action items & wrap-up</div><div class="agenda-dur">5 min</div></div></div>
+  </div>
+  <div class="side-card">
+    <div class="side-title"><span class="ms">tips_and_updates</span>Quick Tips</div>
+    <div style="display:flex;flex-direction:column;gap:.625rem">
+      <div style="font-size:.78rem;color:var(--muted2);display:flex;gap:.5rem;align-items:flex-start"><span class="ms" style="font-size:15px;color:#60a5fa;flex-shrink:0">wifi</span>Wired connection = best quality</div>
+      <div style="font-size:.78rem;color:var(--muted2);display:flex;gap:.5rem;align-items:flex-start"><span class="ms" style="font-size:15px;color:#60a5fa;flex-shrink:0">headphones</span>Headphones reduce echo</div>
+      <div style="font-size:.78rem;color:var(--muted2);display:flex;gap:.5rem;align-items:flex-start"><span class="ms" style="font-size:15px;color:#60a5fa;flex-shrink:0">light_mode</span>Face a window for good lighting</div>
+      <div style="font-size:.78rem;color:var(--muted2);display:flex;gap:.5rem;align-items:flex-start"><span class="ms" style="font-size:15px;color:#60a5fa;flex-shrink:0">close_fullscreen</span>Close unused tabs to save bandwidth</div>
+      <div style="font-size:.78rem;color:var(--muted2);display:flex;gap:.5rem;align-items:flex-start"><span class="ms" style="font-size:15px;color:#60a5fa;flex-shrink:0">timer</span>Join 2 min early to test A/V</div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<div class="toast" id="toast"><span class="ms" id="toastIcon">check_circle</span><span id="toastMsg">Done</span></div>
+
+<script>
+const MID   = "{{ mid }}";
+const MTIME = "{{ meeting.scheduled_at or '' }}";
+const PARTS = {{ meeting.participants | tojson if meeting.participants else '[]' }};
+
+let camStream=null, pvCamStream=null, guestCamStream=null;
+let camOn=false, micOn=false, pvCamOn=false, pvMicOn=false, gCamOn=false, gMicOn=false;
+let currentBg='none', currentQuality='720p', noiseOn=true;
+let audioCtx=null;
+
+// Format time
+try {
+  if(MTIME){const d=new Date(MTIME);if(!isNaN(d))document.getElementById('meetingTime').textContent=d.toLocaleString([],{weekday:'short',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});}
+} catch(e){}
+
+// Countdown
+(function(){
+  if(!MTIME)return;
+  const target=new Date(MTIME).getTime();if(isNaN(target))return;
+  const bar=document.getElementById('countdownBar');
+  function tick(){
+    const diff=target-Date.now();if(diff<=0||diff>7*24*3600000)return;
+    bar.style.display='block';
+    const d=Math.floor(diff/86400000),h=Math.floor((diff%86400000)/3600000),m=Math.floor((diff%3600000)/60000),s=Math.floor((diff%60000)/1000);
+    document.getElementById('cdDays').textContent=String(d).padStart(2,'0');
+    document.getElementById('cdHours').textContent=String(h).padStart(2,'0');
+    document.getElementById('cdMins').textContent=String(m).padStart(2,'0');
+    document.getElementById('cdSecs').textContent=String(s).padStart(2,'0');
+  }
+  tick();setInterval(tick,1000);
+})();
+
+// Participants
+(function(){
+  const el=document.getElementById('participantsList'),cEl=document.getElementById('partCount');
+  let parts=[];try{parts=typeof PARTS==='string'?JSON.parse(PARTS):PARTS;}catch(e){}
+  if(cEl)cEl.textContent=parts.length||0;
+  if(!parts||parts.length===0)return;
+  const colors=['#2563eb','#7c3aed','#059669','#d97706','#dc2626','#0891b2'];
+  const roles=['host','attendee','presenter','attendee','attendee','observer'];
+  el.innerHTML=parts.slice(0,8).map((p,i)=>{
+    const name=typeof p==='string'?p:(p.name||p.email||'Guest');
+    const col=colors[i%colors.length];
+    const role=p.role||roles[i]||'attendee';
+    const online=Math.random()>.3;
+    return `<div class="part-item">
+      <div class="part-av" style="background:${col}">${name[0]?.toUpperCase()||'?'}</div>
+      <div class="part-name">${name}</div>
+      ${role==='host'?'<span class="part-role role-host">Host</span>':role==='presenter'?'<span class="part-role role-presenter">Present</span>':''}
+      <div class="part-dot ${online?'dot-online':'dot-away'}"></div>
+    </div>`;
+  }).join('')+(parts.length>8?`<div style="font-size:.75rem;color:var(--muted);padding:.4rem 0">+${parts.length-8} more</div>`:'');
+})();
+
+// Network check
+(function(){
+  const conn=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+  const connEl=document.getElementById('connType'),connBar=document.getElementById('connBar');
+  const latEl=document.getElementById('latency'),bwEl=document.getElementById('bandwidth');
+  const webrtcEl=document.getElementById('webrtcStatus'),signalText=document.getElementById('signalText');
+  if(conn){
+    const type=conn.effectiveType||'4g';
+    const q={slow2g:{p:20,c:'#ef4444',t:'Slow'},'2g':{p:40,c:'#f59e0b',t:'Fair'},'3g':{p:65,c:'#fbbf24',t:'Good'},'4g':{p:95,c:'#34d399',t:'Excellent'}}[type]||{p:80,c:'#34d399',t:'Good'};
+    if(connEl){connEl.textContent=q.t+' ('+type.toUpperCase()+')';connEl.style.color=q.c;}
+    if(connBar){connBar.style.width=q.p+'%';connBar.style.background='linear-gradient(90deg,'+q.c+','+q.c+'aa)';}
+    if(signalText){signalText.textContent='Connection: '+q.t;signalText.style.color=q.c;}
+    if(q.p>85){const s4=document.getElementById('sig4');if(s4)s4.style.opacity='1';}
+    if(conn.downlink&&bwEl)bwEl.textContent=conn.downlink.toFixed(1)+' Mbps';
+    if(conn.rtt&&latEl){latEl.textContent=conn.rtt+'ms';latEl.style.color=conn.rtt<100?'#34d399':conn.rtt<300?'#fbbf24':'#f87171';}
+  } else {
+    if(connEl){connEl.textContent='Good';connEl.style.color='#34d399';}
+    if(connBar)connBar.style.width='85%';
+    if(signalText){signalText.textContent='Connection looks good';signalText.style.color='#34d399';}
+    if(latEl){latEl.textContent='< 50ms';latEl.style.color='#34d399';}
+    if(bwEl)bwEl.textContent='> 10 Mbps';
+  }
+  try {
+    const pc=new RTCPeerConnection({iceServers:[]});
+    pc.createDataChannel('');
+    pc.createOffer().then(()=>{if(webrtcEl){webrtcEl.textContent='Available ✓';webrtcEl.style.color='#34d399';}pc.close();}).catch(()=>{if(webrtcEl){webrtcEl.textContent='Limited';webrtcEl.style.color='#fbbf24';}});
+  } catch(e){if(webrtcEl){webrtcEl.textContent='Not supported';webrtcEl.style.color='#f87171';}}
+})();
+
+// Populate devices
+async function populateDevices(){
+  try {
+    const devs=await navigator.mediaDevices.enumerateDevices();
+    const camSel=document.getElementById('camSelect'),micSel=document.getElementById('micSelect'),spkSel=document.getElementById('spkSelect');
+    devs.forEach(d=>{
+      const o=document.createElement('option');o.value=d.deviceId;o.textContent=d.label||d.kind;
+      if(d.kind==='videoinput'&&camSel)camSel.appendChild(o.cloneNode(true));
+      if(d.kind==='audioinput'&&micSel)micSel.appendChild(o.cloneNode(true));
+      if(d.kind==='audiooutput'&&spkSel)spkSel.appendChild(o.cloneNode(true));
+    });
+  } catch(e){}
+}
+navigator.mediaDevices?.addEventListener('devicechange',populateDevices);
+populateDevices();
+
+// Tab switch
+function switchTab(id,el){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab'+id)?.classList.add('active');
+  el.classList.add('active');
+}
+
+// Logged-in camera
+async function toggleCam(){
+  const btn=document.getElementById('camBtn'),vid=document.getElementById('avVideo'),ph=document.getElementById('avPH');
+  const snap=document.getElementById('snapBtn');
+  if(!camOn){
+    try{
+      const c={video:{width:{ideal:currentQuality==='1080p'?1920:currentQuality==='480p'?854:1280}}};
+      const devId=document.getElementById('camSelect')?.value;if(devId)c.video.deviceId={exact:devId};
+      camStream=await navigator.mediaDevices.getUserMedia(c);
+      vid.srcObject=camStream;vid.style.display='block';ph.style.display='none';
+      btn.textContent='videocam';btn.classList.remove('off');btn.classList.add('active');camOn=true;
+      if(snap)snap.style.display='flex';
+      showToast('Camera on','success','videocam');
+    } catch(e){showToast('Camera access denied','error','videocam_off');}
+  } else {
+    if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}
+    vid.style.display='none';ph.style.display='flex';
+    btn.textContent='videocam_off';btn.classList.add('off');btn.classList.remove('active');camOn=false;
+    if(snap)snap.style.display='none';
+    showToast('Camera off','info','videocam_off');
+  }
+}
+
+async function toggleMic(){
+  const btn=document.getElementById('micBtn'),bar=document.getElementById('micBar'),st=document.getElementById('micStatus');
+  if(!micOn){
+    try{
+      const ms=await navigator.mediaDevices.getUserMedia({audio:{noiseSuppression:noiseOn,echoCancellation:true}});
+      startMeter(ms,bar,st,'vizBars');
+      btn.textContent='mic';btn.classList.remove('off');btn.classList.add('active');micOn=true;
+      if(st){st.textContent='Active';st.style.color='var(--green2)';}
+      showToast('Microphone on','success','mic');
+    } catch(e){showToast('Mic access denied','error','mic_off');}
+  } else {
+    btn.textContent='mic_off';btn.classList.add('off');btn.classList.remove('active');micOn=false;
+    if(bar)bar.style.width='0%';
+    if(st){st.textContent='Off';st.style.color='var(--muted)';}
+    showToast('Microphone off','info','mic_off');
+  }
+}
+
+function flipCamera(){showToast('Camera flipped','info','flip_camera_ios');}
+
+function toggleBlur(){
+  if(currentBg==='blur')setBg('none',document.getElementById('bg-none'));
+  else setBg('blur',document.getElementById('bg-blur'));
+}
+function setBg(type,el){
+  currentBg=type;
+  document.querySelectorAll('.bg-effect-btn').forEach(b=>b.classList.remove('active'));
+  if(el)el.classList.add('active');
+  const blurBtn=document.getElementById('blurBtn');if(blurBtn)blurBtn.classList.toggle('active',type==='blur');
+  const msgs={none:'Background removed',blur:'Blur effect applied',office:'Office background set',space:'Space background set'};
+  showToast(msgs[type]||'Background changed','info','blur_on');
+}
+function setQuality(q,el){
+  currentQuality=q;
+  document.querySelectorAll('.q-btn').forEach(b=>b.classList.remove('active'));
+  if(el)el.classList.add('active');
+  showToast('Quality: '+q,'info','hd');
+}
+function changeCam(){if(camOn){toggleCam().then(()=>toggleCam());}}
+function changeMic(){if(micOn){toggleMic().then(()=>toggleMic());}}
+function takeSnapshot(){
+  if(!camStream){showToast('Enable camera first','error','videocam_off');return;}
+  const vid=document.getElementById('avVideo');
+  const c=document.createElement('canvas');c.width=vid.videoWidth;c.height=vid.videoHeight;
+  c.getContext('2d').drawImage(vid,0,0);
+  const a=document.createElement('a');a.download='snapshot-'+Date.now()+'.jpg';a.href=c.toDataURL('image/jpeg',.9);a.click();
+  showToast('Snapshot saved!','success','photo_camera');
+}
+function syncName(){
+  const v=document.getElementById('displayName')?.value;
+  const el=document.getElementById('intentName');if(el)el.textContent=v||'…';
+}
+
+// Preview
+async function togglePreviewCam(){
+  const btn=document.getElementById('pvCamBtn'),vid=document.getElementById('previewVid'),ph=document.getElementById('previewPH');
+  const camChk=document.getElementById('camCheck'),micChk=document.getElementById('micCheck');
+  if(!pvCamOn){
+    try{
+      pvCamStream=await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+      vid.srcObject=pvCamStream;vid.style.display='block';ph.style.display='none';
+      btn.textContent='videocam';btn.classList.remove('off');btn.classList.add('active');pvCamOn=true;
+      startMeter(pvCamStream,document.getElementById('pvMicBar'),document.getElementById('pvMicStatus'));
+      document.getElementById('pvMicBtn').textContent='mic';document.getElementById('pvMicBtn').classList.remove('off');pvMicOn=true;
+      if(camChk){camChk.textContent='videocam';camChk.style.color='var(--green2)';}
+      if(micChk){micChk.textContent='mic';micChk.style.color='var(--green2)';}
+      showToast('Camera & mic ready','success','check_circle');
+    } catch(e){showToast('Permission required','error','videocam_off');}
+  } else {
+    if(pvCamStream){pvCamStream.getTracks().forEach(t=>t.stop());pvCamStream=null;}
+    vid.style.display='none';ph.style.display='flex';
+    btn.textContent='videocam_off';btn.classList.add('off');btn.classList.remove('active');pvCamOn=false;
+    document.getElementById('pvMicBtn').textContent='mic_off';document.getElementById('pvMicBtn').classList.add('off');pvMicOn=false;
+    document.getElementById('pvMicBar').style.width='0%';
+    if(camChk){camChk.textContent='videocam_off';camChk.style.color='var(--muted)';}
+  }
+}
+function togglePreviewMic(){pvMicOn=!pvMicOn;const btn=document.getElementById('pvMicBtn');btn.textContent=pvMicOn?'mic':'mic_off';btn.classList.toggle('off',!pvMicOn);btn.classList.toggle('active',pvMicOn);}
+
+// Guest cam
+async function toggleGuestCam(){
+  const btn=document.getElementById('gCamBtn'),vid=document.getElementById('guestVideo'),ph=document.getElementById('guestPH');
+  if(!gCamOn){
+    try{
+      guestCamStream=await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+      vid.srcObject=guestCamStream;vid.style.display='block';ph.style.display='none';
+      btn.textContent='videocam';btn.classList.remove('off');btn.classList.add('active');gCamOn=true;
+      startMeter(guestCamStream,document.getElementById('gMicBar'),document.getElementById('gMicStatus'));
+      document.getElementById('gMicBtn').textContent='mic';document.getElementById('gMicBtn').classList.remove('off');gMicOn=true;
+      showToast('Camera & mic ready','success','videocam');
+    } catch(e){showToast('Camera/mic permission needed','error','videocam_off');}
+  } else {
+    if(guestCamStream){guestCamStream.getTracks().forEach(t=>t.stop());guestCamStream=null;}
+    vid.style.display='none';ph.style.display='flex';
+    btn.textContent='videocam_off';btn.classList.add('off');btn.classList.remove('active');gCamOn=false;
+    document.getElementById('gMicBtn').textContent='mic_off';document.getElementById('gMicBtn').classList.add('off');gMicOn=false;
+    document.getElementById('gMicBar').style.width='0%';
+  }
+}
+async function toggleGuestMic(){
+  const btn=document.getElementById('gMicBtn');
+  if(!gMicOn){
+    try{
+      const ms=await navigator.mediaDevices.getUserMedia({audio:true});
+      startMeter(ms,document.getElementById('gMicBar'),document.getElementById('gMicStatus'));
+      btn.textContent='mic';btn.classList.remove('off');btn.classList.add('active');gMicOn=true;
+      showToast('Mic active','success','mic');
+    } catch(e){showToast('Mic access denied','error','mic_off');}
+  } else {
+    btn.textContent='mic_off';btn.classList.add('off');btn.classList.remove('active');gMicOn=false;
+    document.getElementById('gMicBar').style.width='0%';
+    const st=document.getElementById('gMicStatus');if(st){st.textContent='Off';st.style.color='var(--muted)';}
+  }
+}
+
+// Mic meter + visualizer
+function startMeter(stream,bar,statusEl,vizId){
+  if(!bar)return;
+  try{
+    if(!audioCtx)audioCtx=new AudioContext();
+    const src=audioCtx.createMediaStreamSource(stream),analyser=audioCtx.createAnalyser();
+    analyser.fftSize=128;src.connect(analyser);
+    const data=new Uint8Array(analyser.frequencyBinCount);
+    const vizEl=vizId?document.getElementById(vizId):null;
+    function draw(){
+      requestAnimationFrame(draw);
+      analyser.getByteFrequencyData(data);
+      const avg=data.reduce((a,b)=>a+b,0)/data.length;
+      const pct=Math.min(100,avg*2.5);
+      bar.style.width=pct+'%';
+      bar.style.background=pct>80?'linear-gradient(90deg,#f87171,#ef4444)':'linear-gradient(90deg,#34d399,#10b981)';
+      if(vizEl){
+        const bars=vizEl.querySelectorAll('.viz-bar');
+        bars.forEach((b,i)=>{
+          const h=Math.max(3,(data[i*2]||0)*.25);
+          b.style.height=h+'px';
+          b.style.background=h>8?'#34d399':'rgba(255,255,255,.15)';
+        });
+      }
+    }
+    draw();
+    if(statusEl){statusEl.textContent='Active';statusEl.style.color='var(--green2)';}
+  } catch(e){}
+}
+
+// Toggles
+function toggleSw(btn){btn.classList.toggle('on');}
+function toggleNoise(btn){btn.classList.toggle('on');noiseOn=btn.classList.contains('on');showToast(noiseOn?'Noise cancellation on':'Noise cancellation off','info','noise_control_off');}
+
+// Guest join
+function joinAsGuest(){
+  const name=document.getElementById('guestName')?.value.trim();
+  const err=document.getElementById('guestErr');
+  if(!name){err.textContent='Please enter your name.';err.style.display='block';document.getElementById('guestName').focus();return;}
+  err.style.display='none';
+  const btn=document.getElementById('guestBtn'),txt=document.getElementById('guestBtnTxt');
+  btn.disabled=true;txt.innerHTML='<span class="spin"></span> Joining…';
+  sessionStorage.setItem('guest_name',name);
+  sessionStorage.setItem('guest_email',document.getElementById('guestEmail')?.value.trim()||'');
+  sessionStorage.setItem('is_guest','1');
+  window.location.href='/meeting/'+MID+'/live?guest=1&name='+encodeURIComponent(name);
+}
+
+// Share
+function copyLink(){
+  navigator.clipboard.writeText(window.location.href).then(()=>{
+    const b=document.getElementById('copyBtn');
+    b.innerHTML='<span class="ms">check</span>Copied!';
+    showToast('Invite link copied!','success','check_circle');
+    setTimeout(()=>{b.innerHTML='<span class="ms">link</span>Copy';},2200);
+  });
+}
+function copyId(){navigator.clipboard.writeText(MID).then(()=>showToast('Meeting ID copied','success','tag'));}
+function shareWhatsApp(){window.open('https://wa.me/?text='+encodeURIComponent('Join my MeetFlow meeting: '+window.location.href),'_blank');}
+function shareEmail(){const s=encodeURIComponent('Meeting Invite: {{ meeting.title }}');const b=encodeURIComponent("You've been invited to a MeetFlow meeting.\n\nJoin here: "+window.location.href);window.location.href='mailto:?subject='+s+'&body='+b;}
+function shareCalendar(){window.open('https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent('{{ meeting.title }}')+'&details='+encodeURIComponent('Join: '+window.location.href),'_blank');}
+
+// Toast
+function showToast(msg,type,icon){
+  const t=document.getElementById('toast'),i=document.getElementById('toastIcon'),m=document.getElementById('toastMsg');
+  i.textContent=icon||'check_circle';m.textContent=msg;
+  i.style.color=type==='error'?'#f87171':type==='success'?'#34d399':'#60a5fa';
+  t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),3000);
+}
+</script>
+</body>
+</html>

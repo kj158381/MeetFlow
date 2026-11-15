@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block title %}Meeting Notes — MeetFlow{% endblock %}
+
+{% block content %}
+<div class="flex-1 overflow-y-auto">
+    <!-- Header -->
+    <div class="sticky top-0 bg-white border-b border-slate-200 z-10 px-8 py-4 flex items-center justify-between">
+        <div>
+            <h1 class="font-display font-bold text-slate-900 text-xl">Meeting Notes</h1>
+            <p class="text-sm text-slate-500">AI-generated summaries and key points</p>
+        </div>
+        <a href="{{ url_for('new_meeting') }}" class="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-all shadow-sm shadow-primary/20">
+            <span class="msymbol text-xl">add</span>
+            New Meeting
+        </a>
+    </div>
+
+    <div class="p-8">
+        {% if notes %}
+        <div class="space-y-4">
+            {% for note in notes %}
+            <div class="bg-white rounded-2xl border border-slate-200 p-6 hover:shadow-md transition-shadow cursor-pointer" onclick="openNote('{{ note.id }}')">
+                <div class="flex items-start justify-between gap-4 mb-4">
+                    <div class="flex-1 min-w-0">
+                        <h2 class="font-display font-bold text-slate-900 text-lg mb-1 truncate">
+                            {{ note.meeting_title or note.title or 'Untitled Meeting' }}
+                        </h2>
+                        <p class="text-sm text-slate-400 flex items-center gap-2">
+                            <span class="msymbol text-base">calendar_today</span>
+                            {{ note.scheduled_at[:10] if note.scheduled_at else note.created_at[:10] }}
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        {% if note.ai_summary %}
+                        <span class="flex items-center gap-1 text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full font-semibold">
+                            <span class="msymbol text-base">auto_awesome</span> AI Summary
+                        </span>
+                        {% endif %}
+                        <span class="msymbol text-slate-300 hover:text-primary transition-colors text-xl">chevron_right</span>
+                    </div>
+                </div>
+
+                {% if note.ai_summary %}
+                <div class="p-3 rounded-xl bg-primary/5 border border-primary/10 mb-4">
+                    <p class="text-sm text-slate-700 leading-relaxed line-clamp-2">{{ note.ai_summary }}</p>
+                </div>
+                {% endif %}
+
+                {% if note.key_points and note.key_points != '[]' %}
+                {% set kps = note.key_points | tojson | safe %}
+                <div class="space-y-2" id="kp-preview-{{ note.id }}">
+                    {% set parsed = note.key_points %}
+                </div>
+                <p class="text-xs text-slate-400 mt-2 flex items-center gap-1">
+                    <span class="msymbol text-base">emoji_objects</span>
+                    Key points available — click to view
+                </p>
+                {% else %}
+                <p class="text-sm text-slate-400 italic">No key points captured yet</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-20">
+            <div class="size-20 rounded-3xl bg-primary/10 flex items-center justify-center mx-auto mb-5">
+                <span class="msymbol msymbol-fill text-primary text-4xl">sticky_note_2</span>
+            </div>
+            <h2 class="font-display font-bold text-slate-900 text-xl mb-2">No Meeting Notes Yet</h2>
+            <p class="text-slate-500 mb-6 max-w-sm mx-auto">Start a meeting and let AI automatically capture key points and generate summaries.</p>
+            <a href="{{ url_for('new_meeting') }}" class="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-blue-700 transition-all">
+                <span class="msymbol text-xl">add</span>
+                Schedule First Meeting
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Note Detail Modal -->
+<div id="noteModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col">
+        <div class="flex items-center justify-between px-8 py-5 border-b border-slate-100">
+            <h2 class="font-display font-bold text-slate-900 text-lg" id="modalTitle">Meeting Notes</h2>
+            <button onclick="closeNoteModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                <span class="msymbol text-2xl">close</span>
+            </button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-8" id="modalContent">
+        </div>
+        <div class="flex items-center gap-3 px-8 py-5 border-t border-slate-100">
+            <button onclick="closeNoteModal()" class="flex-1 py-3 border border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 transition-all">Close</button>
+            <button onclick="exportNote()" class="flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-blue-700 transition-all">
+                <span class="msymbol text-xl">download</span> Export
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentNoteData = null;
+
+async function openNote(noteId) {
+    const res = await fetch(`/api/notes/${noteId}`);
+    const note = await res.json();
+    currentNoteData = note;
+
+    document.getElementById('modalTitle').textContent = note.title || 'Meeting Notes';
+
+    let kps = [];
+    try { kps = JSON.parse(note.key_points || '[]'); } catch(e) {}
+
+    const typeColors = {
+        decision: 'bg-blue-100 text-blue-700',
+        action: 'bg-green-100 text-green-700',
+        deadline: 'bg-amber-100 text-amber-700',
+        follow_up: 'bg-purple-100 text-purple-700',
+        manual: 'bg-slate-100 text-slate-700'
+    };
+    const typeIcons = {
+        decision: 'gavel', action: 'task_alt', deadline: 'schedule',
+        follow_up: 'replay', manual: 'edit_note'
+    };
+
+    document.getElementById('modalContent').innerHTML = `
+        ${note.ai_summary ? `
+        <div class="mb-6 p-5 rounded-2xl bg-primary/5 border border-primary/10">
+            <div class="flex items-center gap-2 mb-3">
+                <span class="msymbol text-primary text-xl">auto_awesome</span>
+                <h3 class="font-semibold text-slate-900">AI Summary</h3>
+            </div>
+            <p class="text-sm text-slate-700 leading-relaxed">${note.ai_summary}</p>
+        </div>` : ''}
+
+        ${kps.length > 0 ? `
+        <div class="mb-6">
+            <h3 class="font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                <span class="msymbol text-primary text-xl">emoji_objects</span>
+                Key Points (${kps.length})
+            </h3>
+            <div class="space-y-3">
+                ${kps.map(kp => `
+                <div class="flex items-start gap-3 p-4 rounded-xl border border-slate-100 bg-slate-50">
+                    <span class="msymbol text-slate-500 text-xl mt-0.5">${typeIcons[kp.type] || 'circle'}</span>
+                    <div class="flex-1">
+                        <span class="inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${typeColors[kp.type] || 'bg-slate-100 text-slate-700'} mb-1">
+                            ${(kp.type || 'note').replace('_',' ')}
+                        </span>
+                        <p class="text-sm text-slate-800">${kp.text}</p>
+                        ${kp.timestamp ? `<p class="text-xs text-slate-400 mt-1">${kp.timestamp}</p>` : ''}
+                    </div>
+                </div>
+                `).join('')}
+            </div>
+        </div>` : '<p class="text-slate-400 text-sm italic text-center py-8">No key points captured for this meeting</p>'}
+
+        ${note.content ? `
+        <div class="mb-4">
+            <h3 class="font-semibold text-slate-900 mb-2">Notes</h3>
+            <div class="p-4 bg-slate-50 rounded-xl text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">${note.content}</div>
+        </div>` : ''}
+
+        <p class="text-xs text-slate-400 text-center mt-4">Last updated: ${note.updated_at?.replace('T',' ').slice(0,16) || 'N/A'}</p>
+    `;
+
+    document.getElementById('noteModal').classList.remove('hidden');
+}
+
+function closeNoteModal() {
+    document.getElementById('noteModal').classList.add('hidden');
+}
+
+function exportNote() {
+    if (!currentNoteData) return;
+    let kps = [];
+    try { kps = JSON.parse(currentNoteData.key_points || '[]'); } catch(e) {}
+    const text = [
+        `Meeting Notes: ${currentNoteData.title}`,
+        `Date: ${currentNoteData.updated_at?.slice(0,10) || 'N/A'}`,
+        '',
+        currentNoteData.ai_summary ? `AI Summary:\n${currentNoteData.ai_summary}` : '',
+        kps.length > 0 ? `\nKey Points:\n${kps.map(kp => `• [${kp.type}] ${kp.text}`).join('\n')}` : '',
+        currentNoteData.content ? `\nNotes:\n${currentNoteData.content}` : ''
+    ].filter(Boolean).join('\n');
+
+    const blob = new Blob([text], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `meeting-notes-${currentNoteData.id?.slice(0,8)}.txt`;
+    a.click();
+}
+</script>
+{% endblock %}

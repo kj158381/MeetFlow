@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root" class="light">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}"/>
+    <title>{% block title %}MeetFlow{% endblock %}</title>
+    <script>
+    (function() {
+        const theme = localStorage.getItem('meetflow_theme') || '{{ settings.theme if settings is defined else "light" }}';
+        if (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+        if (theme) localStorage.setItem('meetflow_theme', theme);
+    })();
+    </script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#006BFF",
+                        "primary-dark": "#0054CC",
+                        "bg-light": "#F5F7FA",
+                        "bg-dark": "#0D1117",
+                    },
+                    fontFamily: {
+                        sans: ["DM Sans", "sans-serif"],
+                        display: ["Plus Jakarta Sans", "sans-serif"],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'DM Sans', sans-serif; }
+        .msymbol { font-family: 'Material Symbols Outlined'; font-weight: normal; font-style: normal; font-size: 22px; display: inline-block; line-height: 1; letter-spacing: normal; text-transform: none; white-space: nowrap; word-wrap: normal; direction: ltr; -webkit-font-smoothing: antialiased; font-variation-settings: 'FILL' 0, 'wght' 350, 'GRAD' 0, 'opsz' 24; }
+        .msymbol-fill { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+
+        /* ── Sidebar clean white style ── */
+        aside {
+            background: #FFFFFF;
+            border-right: 1px solid #E3E8EF;
+        }
+        .nav-link {
+            display: flex; align-items: center; gap: .75rem;
+            padding: .5625rem .75rem; border-radius: .75rem;
+            font-size: .8125rem; font-weight: 500; color: #4A5568;
+            text-decoration: none; transition: all .16s;
+        }
+        .nav-link:hover { background: #F0F2F7; color: #0D1117; }
+        .nav-link.active {
+            background: rgba(0,107,255,0.08);
+            color: #006BFF;
+            font-weight: 600;
+        }
+        .nav-link.active .msymbol { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .sidebar-logo-text { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: .9375rem; color: #0D1117; letter-spacing: -.02em; }
+        .sidebar-section-label { font-size: .625rem; font-weight: 700; color: #B0B9C8; text-transform: uppercase; letter-spacing: .1em; padding: .375rem .625rem; margin-top: .5rem; }
+        .new-meeting-btn {
+            display: flex; align-items: center; justify-content: center; gap: .5rem;
+            padding: .6875rem; border-radius: .75rem;
+            background: #006BFF;
+            color: #fff; font-size: .8125rem; font-weight: 700;
+            text-decoration: none; transition: all .16s;
+            box-shadow: 0 4px 14px rgba(0,107,255,.22);
+        }
+        .new-meeting-btn:hover { background: #0054CC; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,107,255,.28); }
+
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #C9D0DC; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #B0B9C8; }
+        .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9999; transform: translateY(120%); transition: transform 0.3s ease; }
+        .toast.show { transform: translateY(0); }
+
+        /* Dark mode sidebar override */
+        html.dark aside { background: #161B22 !important; border-right-color: rgba(255,255,255,.08) !important; }
+        html.dark .nav-link { color: #A0AEC0; }
+        html.dark .nav-link:hover { background: rgba(255,255,255,.06) !important; color: #F0F4F8; }
+        html.dark .nav-link.active { background: rgba(0,107,255,.15) !important; color: #60A5FA !important; }
+        html.dark .sidebar-logo-text { color: #F0F4F8; }
+        html.dark .sidebar-section-label { color: #3D4F63; }
+    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}"/>
+    {% block head %}{% endblock %}
+</head>
+<body class="bg-bg-light min-h-screen">
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div id="flash-container" class="fixed top-4 right-4 z-50 space-y-2">
+      {% for category, message in messages %}
+        <div class="flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg {{ 'bg-green-50 border border-green-200 text-green-800' if category == 'success' else 'bg-red-50 border border-red-200 text-red-800' }}">
+          <span class="msymbol text-lg">{{ 'check_circle' if category == 'success' else 'error' }}</span>
+          <span class="text-sm font-medium">{{ message }}</span>
+        </div>
+      {% endfor %}
+    </div>
+    <script>setTimeout(() => { document.getElementById('flash-container')?.remove(); }, 4000);</script>
+  {% endif %}
+{% endwith %}
+
+{% block full_page %}
+<div class="flex h-screen overflow-hidden">
+    <!-- Sidebar -->
+    <aside class="w-60 flex flex-col shrink-0">
+        <!-- Logo -->
+        <div class="p-4 flex items-center gap-2.5" style="border-bottom:1px solid #E3E8EF">
+            <div class="size-8 rounded-[10px] flex items-center justify-center flex-shrink-0" style="background:#006BFF;box-shadow:0 4px 14px rgba(0,107,255,.25)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z" fill="white" opacity=".9"/>
+                    <path d="M2 17l10 5 10-5" stroke="white" stroke-width="2" stroke-linecap="round" opacity=".7"/>
+                    <path d="M2 12l10 5 10-5" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <span class="sidebar-logo-text">MeetFlow</span>
+        </div>
+        <!-- Nav -->
+        <nav class="flex-1 p-3 space-y-0.5 overflow-y-auto">
+            <p class="sidebar-section-label">Main</p>
+            <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
+                <span class="msymbol {% if request.endpoint == 'dashboard' %}msymbol-fill{% endif %} text-xl">dashboard</span>
+                Dashboard
+            </a>
+            <a href="{{ url_for('calendar') }}" class="nav-link {% if request.endpoint == 'calendar' %}active{% endif %}">
+                <span class="msymbol {% if request.endpoint == 'calendar' %}msymbol-fill{% endif %} text-xl">calendar_today</span>
+                Calendar
+            </a>
+            <a href="{{ url_for('meeting_notes') }}" class="nav-link {% if request.endpoint == 'meeting_notes' %}active{% endif %}">
+                <span class="msymbol {% if request.endpoint == 'meeting_notes' %}msymbol-fill{% endif %} text-xl">sticky_note_2</span>
+                Meeting Notes
+            </a>
+            <a href="{{ url_for('tasks') }}" class="nav-link {% if request.endpoint == 'tasks' %}active{% endif %}">
+                <span class="msymbol {% if request.endpoint == 'tasks' %}msymbol-fill{% endif %} text-xl">check_box</span>
+                My Tasks
+            </a>
+            <a href="{{ url_for('contacts') }}" class="nav-link {% if request.endpoint == 'contacts' %}active{% endif %}">
+                <span class="msymbol {% if request.endpoint == 'contacts' %}msymbol-fill{% endif %} text-xl">group</span>
+                Contacts
+            </a>
+            <a href="{{ url_for('join_page') }}" class="nav-link {% if request.endpoint == 'join_page' %}active{% endif %}">
+                <span class="msymbol {% if request.endpoint == 'join_page' %}msymbol-fill{% endif %} text-xl">meeting_room</span>
+                Join Meeting
+            </a>
+            <a href="{{ url_for('settings') }}" class="nav-link {% if request.endpoint == 'settings' %}active{% endif %}">
+                <span class="msymbol {% if request.endpoint == 'settings' %}msymbol-fill{% endif %} text-xl">settings</span>
+                Settings
+            </a>
+            <div class="pt-3">
+                <p class="sidebar-section-label">Actions</p>
+                <a href="{{ url_for('new_meeting') }}" class="new-meeting-btn mt-1">
+                    <span class="msymbol text-xl">videocam</span>
+                    New Meeting
+                </a>
+            </div>
+        </nav>
+        <!-- User -->
+        <div class="p-3" style="border-top:1px solid #E3E8EF">
+            <div class="flex items-center justify-between mb-2 px-1">
+                <span class="text-xs font-semibold" style="color:#B0B9C8">Account</span>
+                <div class="flex gap-1">
+                    <button onclick="toggleNotifPanel()" id="notif-bell-btn" class="relative p-1 rounded-lg transition-colors" style="background:transparent;border:none;color:#8A94A6;cursor:pointer" title="Notifications">
+                        <span class="msymbol text-lg">notifications</span>
+                        <span id="notif-dot" class="absolute top-0 right-0 size-2 rounded-full hidden" style="background:#ef4444;border:2px solid #fff;border-radius:50%"></span>
+                    </button>
+                    <a href="{{ url_for('settings') }}" class="p-1 rounded-lg transition-colors" style="color:#8A94A6" title="Settings">
+                        <span class="msymbol text-lg">settings</span>
+                    </a>
+                </div>
+            </div>
+            <div class="flex items-center gap-2.5 p-2.5 rounded-xl cursor-pointer" style="background:#F5F7FA">
+                {% if user and user.picture %}
+                <img src="{{ user.picture }}" class="size-7 rounded-full object-cover border" style="border-color:rgba(255,255,255,.1)" alt="Avatar"/>
+                {% else %}
+                <div class="size-7 rounded-full flex items-center justify-center text-white font-bold text-xs" style="background:#006BFF">
+                    {{ (user.name or 'U')[0].upper() if user else 'U' }}
+                </div>
+                {% endif %}
+                <div class="flex-1 min-w-0">
+                    <p class="text-xs font-semibold truncate" style="color:#0D1117">{{ user.name if user else 'User' }}</p>
+                    <p class="text-xs truncate" style="color:#8A94A6">{{ user.email if user else '' }}</p>
+                </div>
+                <button onclick="doLogout()" class="transition-colors border-none bg-transparent p-0 cursor-pointer" style="color:#B0B9C8" title="Logout">
+                    <span class="msymbol text-lg">logout</span>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {% block content %}{% endblock %}
+    </main>
+</div>
+{% endblock %}
+
+
+<!-- ═══ NOTIFICATION PANEL ═════════════════════════════════════ -->
+<div id="notif-overlay" onclick="closeNotifPanel()" style="display:none;position:fixed;inset:0;z-index:199;background:transparent"></div>
+<div id="notif-panel" style="
+  display:none;
+  position:fixed;
+  bottom:72px;
+  left:12px;
+  width:320px;
+  max-height:480px;
+  background:#fff;
+  border:1px solid #E3E8EF;
+  border-radius:16px;
+  box-shadow:0 8px 32px rgba(13,17,23,.14);
+  z-index:200;
+  flex-direction:column;
+  overflow:hidden;
+  animation:notifIn .18s ease;
+">
+  <style>
+    @keyframes notifIn { from{opacity:0;transform:translateY(8px) scale(.97)} to{opacity:1;transform:translateY(0) scale(1)} }
+    .nf-item { display:flex; align-items:flex-start; gap:.75rem; padding:.875rem 1rem; border-bottom:1px solid #F0F2F7; cursor:pointer; transition:background .14s; text-decoration:none; }
+    .nf-item:last-child { border-bottom:none; }
+    .nf-item:hover { background:#F8FAFD; }
+    .nf-item.unread { background:#F0F6FF; }
+    .nf-item.unread:hover { background:#E8F0FE; }
+    .nf-icon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-family:"Material Symbols Outlined"; font-size:18px; line-height:1; font-style:normal; font-variation-settings:"FILL" 1,"wght" 400,"GRAD" 0,"opsz" 24; }
+    .nf-icon-blue   { background:rgba(0,107,255,.10); color:#006BFF; }
+    .nf-icon-green  { background:rgba(16,185,129,.10); color:#059669; }
+    .nf-icon-amber  { background:rgba(245,158,11,.10); color:#b45309; }
+    .nf-icon-purple { background:rgba(139,92,246,.10); color:#7c3aed; }
+    .nf-icon-red    { background:rgba(239,68,68,.10);  color:#dc2626; }
+    .nf-title { font-size:.8125rem; font-weight:600; color:#0D1117; margin-bottom:.2rem; line-height:1.3; }
+    .nf-sub   { font-size:.75rem; color:#8A94A6; line-height:1.4; }
+    .nf-time  { font-size:.6875rem; color:#B0B9C8; white-space:nowrap; margin-top:.25rem; }
+    .nf-unread-dot { width:7px; height:7px; border-radius:50%; background:#006BFF; flex-shrink:0; margin-top:4px; }
+    /* Dark mode */
+    html.dark #notif-panel { background:#161B22; border-color:rgba(255,255,255,.08); color:#F0F4F8; }
+    html.dark #notif-panel [style*="color:#0D1117"] { color:#F0F4F8 !important; }
+    html.dark #notif-panel [style*="border-bottom:1px solid #E3E8EF"] { border-color:rgba(255,255,255,.08) !important; }
+    html.dark #notif-panel [style*="border-bottom:1px solid var(--border"] { border-color:rgba(255,255,255,.08) !important; }
+    html.dark #notif-panel button { color:#A0AEC0; }
+    html.dark #notif-panel .nf-title { color:#F0F4F8; }
+    html.dark .nf-item { border-color:rgba(255,255,255,.06); }
+    html.dark .nf-item:hover { background:#1C2333; }
+    html.dark .nf-item.unread { background:rgba(0,107,255,.08); }
+    html.dark .nf-item.unread:hover { background:rgba(0,107,255,.12); }
+    html.dark .nf-title { color:#F0F4F8; }
+    html.dark .nf-sub   { color:#5C6E82; }
+    html.dark #notif-perm-bar { background:#1C2333; border-color:rgba(255,255,255,.08); }
+    html.dark #notif-perm-bar p { color:#A0AEC0; }
+  </style>
+
+  <!-- Header -->
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:.875rem 1rem;border-bottom:1px solid var(--border,#E3E8EF);flex-shrink:0">
+    <div style="display:flex;align-items:center;gap:.5rem">
+      <span style="font-family:'Material Symbols Outlined';font-size:18px;color:#006BFF;font-style:normal;line-height:1;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24">notifications</span>
+      <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:.9375rem;color:var(--text-primary,#0D1117)" id="notif-header-title">Notifications</span>
+      <span id="notif-unread-badge" style="display:none;background:#006BFF;color:#fff;font-size:.625rem;font-weight:700;padding:.15rem .45rem;border-radius:99px;line-height:1.4"></span>
+    </div>
+    <div style="display:flex;align-items:center;gap:.25rem">
+      <button onclick="markAllRead()" style="font-size:.75rem;font-weight:600;color:#006BFF;background:none;border:none;cursor:pointer;padding:.25rem .5rem;border-radius:6px;transition:background .14s" class="mark-all-btn" onmouseover="this.style.background='rgba(0,107,255,.08)'" onmouseout="this.style.background='none'">Mark all read</button>
+      <button onclick="closeNotifPanel()" style="background:none;border:none;cursor:pointer;color:#8A94A6;padding:.25rem;border-radius:6px;font-family:'Material Symbols Outlined';font-size:18px;line-height:1;font-style:normal;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;transition:color .14s" onmouseover="this.style.color='#0D1117'" onmouseout="this.style.color='#8A94A6'">close</button>
+    </div>
+  </div>
+
+  <!-- Browser permission bar -->
+  <div id="notif-perm-bar" style="display:none;background:#FFF8ED;border-bottom:1px solid #FDE68A;padding:.625rem 1rem;flex-shrink:0">
+    <div style="display:flex;align-items:center;gap:.625rem">
+      <span style="font-family:'Material Symbols Outlined';font-size:18px;color:#b45309;font-style:normal;line-height:1;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24">notifications_paused</span>
+      <p style="font-size:.75rem;color:#92400e;flex:1;line-height:1.4">Enable browser notifications to get alerts when this tab is in background.</p>
+      <button onclick="requestBrowserNotifPermission()" style="font-size:.75rem;font-weight:700;color:#b45309;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);border-radius:6px;padding:.25rem .625rem;cursor:pointer;white-space:nowrap">Enable</button>
+    </div>
+  </div>
+
+  <!-- Notification list -->
+  <div id="notif-list" style="overflow-y:auto;flex:1;max-height:340px"></div>
+</div>
+
+<!-- Toast notification -->
+<div id="toast" class="toast">
+    <div class="flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-xl text-white min-w-[280px]" style="background:#0D1117;border:1px solid #1C2333">
+        <span class="msymbol text-xl" id="toast-icon">check_circle</span>
+        <span class="text-sm font-medium" id="toast-msg">Saved!</span>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script>
+(function() {
+  const theme = localStorage.getItem('meetflow_theme') || 'light';
+  if (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    document.documentElement.classList.add('dark');
+  }
+})();
+document.addEventListener('DOMContentLoaded', function() {
+  const compact = localStorage.getItem('meetflow_sidebar_compact');
+  if (compact === '1') document.body.classList.add('sidebar-compact');
+});
+
+/* ─── NOTIFICATION PANEL SYSTEM ──────────────────────────── */
+(function() {
+
+  // ── Storage key
+  const STORE_KEY = 'meetflow_notifications';
+
+  // ── Default seed notifications (shown on first visit)
+  function seedNotifications() {
+    const now = Date.now();
+    return [
+      { id: 'n1', type: 'meeting',  icon: 'videocam',       iconClass: 'nf-icon-blue',   title: 'Upcoming meeting in 15 min', sub: 'Daily Standup · Check your calendar', time: now - 1000*60*2,  read: false, href: '/calendar' },
+      { id: 'n2', type: 'meeting',  icon: 'calendar_month', iconClass: 'nf-icon-amber',  title: 'Meeting scheduled tomorrow', sub: 'Product Review · 10:00 AM', time: now - 1000*60*30, read: false, href: '/calendar' },
+      { id: 'n3', type: 'mail',     icon: 'mark_email_read',iconClass: 'nf-icon-green',  title: 'New email received',         sub: 'You have unread messages in Gmail', time: now - 1000*60*60, read: false, href: '/dashboard' },
+      { id: 'n4', type: 'mail',     icon: 'mail',           iconClass: 'nf-icon-blue',   title: 'Meeting invite via email',   sub: 'Check your inbox for calendar invite', time: now - 1000*60*120, read: true, href: '/dashboard' },
+    ];
+  }
+
+  function loadNotifs() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch(e) {}
+    const seed = seedNotifications();
+    saveNotifs(seed);
+    return seed;
+  }
+
+  function saveNotifs(list) {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(list)); } catch(e) {}
+  }
+
+  function timeAgo(ts) {
+    const diff = Date.now() - ts;
+    const m = Math.floor(diff / 60000);
+    if (m < 1)  return 'just now';
+    if (m < 60) return m + 'm ago';
+    const h = Math.floor(m / 60);
+    if (h < 24) return h + 'h ago';
+    return Math.floor(h / 24) + 'd ago';
+  }
+
+  function unreadCount(list) { return list.filter(n => !n.read).length; }
+
+  function renderNotifList() {
+    const list = loadNotifs();
+    const el   = document.getElementById('notif-list');
+    if (!el) return;
+
+    if (!list.length) {
+      el.innerHTML = `
+        <div style="text-align:center;padding:2.5rem 1rem">
+          <span style="font-family:'Material Symbols Outlined';font-size:2.5rem;color:#B0B9C8;display:block;margin-bottom:.75rem;line-height:1;font-style:normal;font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 48">notifications_off</span>
+          <p style="font-weight:700;color:#4A5568;margin-bottom:.25rem;font-size:.9rem">All caught up!</p>
+          <p style="font-size:.8125rem;color:#8A94A6">No notifications yet.</p>
+        </div>`;
+      return;
+    }
+
+    el.innerHTML = list.map(n => `
+      <a class="nf-item${n.read ? '' : ' unread'}" href="${n.href || '#'}" onclick="markRead('${n.id}', event)">
+        <div class="nf-icon ${n.iconClass}" style="font-family:'Material Symbols Outlined';font-size:18px;line-height:1;font-style:normal;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24">${n.icon}</div>
+        <div style="flex:1;min-width:0">
+          <p class="nf-title">${n.title}</p>
+          <p class="nf-sub">${n.sub}</p>
+          <p class="nf-time">${timeAgo(n.time)}</p>
+        </div>
+        ${n.read ? '' : '<div class="nf-unread-dot"></div>'}
+      </a>`).join('');
+  }
+
+  function updateBadge() {
+    const list  = loadNotifs();
+    const count = unreadCount(list);
+    const dot   = document.getElementById('notif-dot');
+    const badge = document.getElementById('notif-unread-badge');
+    const title = document.getElementById('notif-header-title');
+    if (dot)   { dot.style.display   = count > 0 ? 'block' : 'none'; }
+    if (badge) { badge.style.display = count > 0 ? 'inline' : 'none'; badge.textContent = count; }
+    if (title) { title.textContent   = 'Notifications' + (count > 0 ? '' : ''); }
+  }
+
+  window.toggleNotifPanel = function() {
+    const panel   = document.getElementById('notif-panel');
+    const overlay = document.getElementById('notif-overlay');
+    if (!panel) return;
+    const isOpen  = panel.style.display === 'flex';
+    if (isOpen) {
+      closeNotifPanel();
+    } else {
+      panel.style.display   = 'flex';
+      overlay.style.display = 'block';
+      renderNotifList();
+      updateBadge();
+      // Show permission bar if browser notifs not granted
+      const permBar = document.getElementById('notif-perm-bar');
+      if (permBar) {
+        permBar.style.display = ('Notification' in window && Notification.permission === 'default') ? 'block' : 'none';
+      }
+    }
+  };
+
+  window.closeNotifPanel = function() {
+    const panel   = document.getElementById('notif-panel');
+    const overlay = document.getElementById('notif-overlay');
+    if (panel)   panel.style.display   = 'none';
+    if (overlay) overlay.style.display = 'none';
+  };
+
+  window.markRead = function(id, e) {
+    const list = loadNotifs();
+    const n = list.find(x => x.id === id);
+    if (n) { n.read = true; saveNotifs(list); }
+    updateBadge();
+    // Don't re-render immediately — let the link navigate
+  };
+
+  window.markAllRead = function() {
+    const list = loadNotifs();
+    list.forEach(n => n.read = true);
+    saveNotifs(list);
+    renderNotifList();
+    updateBadge();
+  };
+
+  // Public API — lets other pages add notifications
+  window.addNotification = function(notif) {
+    const list = loadNotifs();
+    const id   = 'n_' + Date.now();
+    list.unshift({ id, read: false, time: Date.now(), href: '#', ...notif });
+    if (list.length > 30) list.pop();
+    saveNotifs(list);
+    updateBadge();
+    // Also fire browser notification if permission granted
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(notif.title || 'MeetFlow', {
+        body: notif.sub || '',
+        icon: '/static/favicon.svg',
+        tag:  'meetflow-notif-' + id,
+      });
+    }
+  };
+
+  // Browser permission helpers
+  window.requestBrowserNotifPermission = function() {
+    if (!('Notification' in window)) return;
+    Notification.requestPermission().then(p => {
+      const permBar = document.getElementById('notif-perm-bar');
+      if (p === 'granted') {
+        new Notification('Notifications enabled!', { body: 'You will now receive MeetFlow alerts.', icon: '/static/favicon.svg' });
+        if (permBar) permBar.style.display = 'none';
+      }
+    });
+  };
+
+  // Legacy compat — used by other templates
+  window.showBrowserNotif = function(title, body, icon) {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'granted') {
+      new Notification(title || 'MeetFlow', { body: body || '', icon: icon || '/static/favicon.svg', badge: '/static/favicon.svg', tag: 'meetflow-notif' });
+    }
+  };
+
+  // Init on load
+  document.addEventListener('DOMContentLoaded', function() {
+    updateBadge();
+    // Close panel on Escape
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeNotifPanel();
+    });
+  });
+
+})();
+</script>
+
+{% block scripts %}{% endblock %}
+
+{% if firebase_enabled %}
+<script type="module">
+import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+const _fbConfig = {{ firebase_config | tojson }};
+const _fbApp = getApps().length ? getApp() : initializeApp(_fbConfig);
+const _fbAuth = getAuth(_fbApp);
+window.doLogout = async function() {
+  try {
+    sessionStorage.setItem('meetflow_logged_out', '1');
+    await signOut(_fbAuth);
+  } catch(e) { console.warn('Sign-out:', e); }
+  window.location.href = '/logout';
+};
+</script>
+{% else %}
+<script>
+window.doLogout = function() { window.location.href = '/logout'; };
+</script>
+{% endif %}
+</body>
+</html>

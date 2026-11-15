@@ -1,0 +1,584 @@
+{% extends "base.html" %}
+{% block title %}Join a Meeting — MeetFlow{% endblock %}
+{% block content %}
+<style>
+/* ── Page wrapper ── */
+.jp-page {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--bg, #F5F7FA);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 3rem 1.5rem 4rem;
+}
+.jp-wrap {
+  width: 100%;
+  max-width: 600px;
+}
+
+/* ── Hero ── */
+.jp-hero {
+  text-align: center;
+  margin-bottom: 2rem;
+  animation: fadeUp .45s ease both;
+}
+@keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+
+.jp-icon {
+  width: 68px; height: 68px;
+  border-radius: 18px;
+  background: var(--primary, #006BFF);
+  box-shadow: 0 8px 28px rgba(0,107,255,.28);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 1.25rem;
+}
+.jp-title {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 1.875rem;
+  font-weight: 800;
+  color: var(--text-primary, #0D1117);
+  letter-spacing: -.035em;
+  margin-bottom: .5rem;
+}
+.jp-sub {
+  color: var(--text-muted, #8A94A6);
+  font-size: .9375rem;
+  line-height: 1.65;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+/* ── Stats row ── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .75rem;
+  margin-bottom: 1.5rem;
+  animation: fadeUp .45s .05s ease both;
+}
+.stat-cell {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #E3E8EF);
+  border-radius: 14px;
+  padding: 1rem;
+  text-align: center;
+  transition: box-shadow .16s;
+}
+.stat-cell:hover { box-shadow: 0 4px 12px rgba(13,17,23,.07); }
+.stat-num {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-primary, #0D1117);
+  line-height: 1;
+  letter-spacing: -.03em;
+}
+.stat-lbl {
+  font-size: .625rem;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--text-muted, #8A94A6);
+  margin-top: .375rem;
+}
+
+/* ── Main card ── */
+.jp-card {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #E3E8EF);
+  border-radius: 20px;
+  padding: 1.75rem;
+  box-shadow: 0 2px 12px rgba(13,17,23,.06);
+  animation: fadeUp .45s .1s ease both;
+  margin-bottom: 1.25rem;
+}
+
+.jp-label {
+  font-size: .6875rem;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--text-muted, #8A94A6);
+  display: block;
+  margin-bottom: .625rem;
+}
+
+/* Input */
+.jp-input-wrap { position: relative; margin-bottom: 1rem; }
+.jp-input {
+  width: 100%;
+  padding: .875rem 1rem .875rem 3rem;
+  background: var(--surface-2, #F0F2F7);
+  border: 1.5px solid var(--border, #E3E8EF);
+  border-radius: 12px;
+  color: var(--text-primary, #0D1117);
+  font-size: 1rem;
+  font-family: 'DM Sans', sans-serif;
+  outline: none;
+  transition: border-color .18s, box-shadow .18s, background .18s;
+}
+.jp-input:focus {
+  border-color: var(--primary, #006BFF);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(0,107,255,.10);
+}
+.jp-input::placeholder { color: var(--text-muted, #8A94A6); }
+.jp-input-icon {
+  position: absolute; left: .875rem; top: 50%; transform: translateY(-50%);
+  color: var(--text-muted, #8A94A6);
+  font-family: 'Material Symbols Outlined'; font-size: 20px;
+  font-style: normal; line-height: 1; pointer-events: none;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+.jp-input-clear {
+  position: absolute; right: .875rem; top: 50%; transform: translateY(-50%);
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--surface-3, #E8EBF2);
+  border: none; color: var(--text-muted, #8A94A6);
+  cursor: pointer; display: none; align-items: center; justify-content: center;
+  font-family: 'Material Symbols Outlined'; font-size: 14px;
+  font-style: normal; line-height: 1;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  transition: background .16s, color .16s;
+}
+.jp-input-clear:hover { background: var(--border-strong, #C9D0DC); color: var(--text-primary, #0D1117); }
+
+/* Error */
+.jp-error {
+  display: none;
+  background: rgba(239,68,68,.07);
+  border: 1px solid rgba(239,68,68,.2);
+  border-radius: 10px;
+  padding: .65rem .875rem;
+  color: #dc2626;
+  font-size: .8125rem;
+  margin-bottom: .875rem;
+  align-items: center; gap: .5rem;
+}
+.jp-error.show { display: flex; }
+
+/* Join button */
+.jp-btn {
+  width: 100%;
+  padding: .9rem 1rem;
+  background: var(--primary, #006BFF);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: .625rem;
+  transition: background .18s, box-shadow .18s, transform .1s;
+  box-shadow: 0 4px 16px rgba(0,107,255,.28);
+  font-family: 'DM Sans', sans-serif;
+}
+.jp-btn:hover:not(:disabled) {
+  background: var(--primary-dark, #0054CC);
+  box-shadow: 0 8px 24px rgba(0,107,255,.35);
+  transform: translateY(-1px);
+}
+.jp-btn:active { transform: translateY(0); }
+.jp-btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+
+/* Paste hint */
+.paste-hint {
+  display: flex; align-items: center; justify-content: center; gap: .5rem;
+  font-size: .75rem; color: var(--text-muted, #8A94A6);
+  margin-top: .75rem;
+}
+.paste-hint kbd {
+  background: var(--surface-2, #F0F2F7);
+  border: 1px solid var(--border, #E3E8EF);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: .1rem .4rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .65rem;
+  color: var(--text-secondary, #4A5568);
+}
+
+/* Quick action cards */
+.quick-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .75rem;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border, #E3E8EF);
+}
+.quick-card {
+  background: var(--surface-2, #F0F2F7);
+  border: 1.5px solid var(--border, #E3E8EF);
+  border-radius: 14px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: background .16s, border-color .16s, box-shadow .16s, transform .1s;
+  display: flex; align-items: center; gap: .75rem;
+  text-decoration: none;
+}
+.quick-card:hover {
+  background: var(--surface, #fff);
+  border-color: var(--primary, #006BFF);
+  box-shadow: 0 4px 12px rgba(0,107,255,.10);
+  transform: translateY(-1px);
+}
+.quick-icon {
+  width: 40px; height: 40px; border-radius: 11px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.quick-text .q-title {
+  font-size: .875rem; font-weight: 700;
+  color: var(--text-primary, #0D1117);
+  margin-bottom: .125rem;
+}
+.quick-text .q-desc {
+  font-size: .75rem;
+  color: var(--text-muted, #8A94A6);
+  line-height: 1.4;
+}
+
+/* Divider */
+.jp-divider {
+  display: flex; align-items: center; gap: .75rem;
+  margin: 1.25rem 0;
+}
+.jp-divider::before, .jp-divider::after {
+  content: ''; flex: 1; height: 1px;
+  background: var(--border, #E3E8EF);
+}
+.jp-divider span {
+  font-size: .6875rem; font-weight: 700;
+  color: var(--text-muted, #8A94A6);
+  letter-spacing: .06em; text-transform: uppercase; white-space: nowrap;
+}
+
+/* Recent meetings */
+.recent-section { animation: fadeUp .45s .15s ease both; }
+.recent-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: .875rem;
+}
+.recent-label {
+  font-size: .6875rem; font-weight: 700;
+  letter-spacing: .09em; text-transform: uppercase;
+  color: var(--text-muted, #8A94A6);
+  display: flex; align-items: center; gap: .5rem;
+}
+.recent-count {
+  font-size: .6875rem; font-weight: 700;
+  background: var(--primary-light, rgba(0,107,255,.08));
+  color: var(--primary, #006BFF);
+  padding: .2rem .625rem; border-radius: 99px;
+  border: 1px solid rgba(0,107,255,.15);
+}
+.recent-grid { display: flex; flex-direction: column; gap: .5rem; }
+.recent-item {
+  display: flex; align-items: center; gap: .875rem;
+  padding: .875rem 1rem;
+  border-radius: 14px;
+  border: 1px solid var(--border, #E3E8EF);
+  background: var(--surface, #fff);
+  cursor: pointer;
+  transition: background .16s, border-color .16s, box-shadow .16s, transform .1s;
+  text-decoration: none;
+  animation: fadeUp .4s ease both;
+}
+.recent-item:nth-child(1){animation-delay:.05s}
+.recent-item:nth-child(2){animation-delay:.10s}
+.recent-item:nth-child(3){animation-delay:.15s}
+.recent-item:nth-child(4){animation-delay:.20s}
+.recent-item:nth-child(5){animation-delay:.25s}
+.recent-item:hover {
+  background: #F8FAFD;
+  border-color: var(--primary, #006BFF);
+  box-shadow: 0 2px 10px rgba(0,107,255,.08);
+  transform: translateX(2px);
+}
+.recent-avatar {
+  width: 40px; height: 40px; border-radius: 11px; flex-shrink: 0;
+  background: var(--primary-light, rgba(0,107,255,.08));
+  border: 1px solid rgba(0,107,255,.15);
+  display: flex; align-items: center; justify-content: center;
+}
+.recent-name {
+  font-size: .9rem; font-weight: 600;
+  color: var(--text-primary, #0D1117);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-bottom: .15rem;
+}
+.recent-meta {
+  font-size: .75rem;
+  color: var(--text-muted, #8A94A6);
+}
+
+/* Badges */
+.ri-badge {
+  margin-left: auto; flex-shrink: 0;
+  font-size: .625rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  padding: .25rem .625rem; border-radius: 99px;
+  display: flex; align-items: center; gap: .3rem;
+}
+.ri-badge-live   { background: rgba(16,185,129,.1); color: #059669; border: 1px solid rgba(16,185,129,.25); }
+.ri-badge-live::before { content:''; width:6px; height:6px; border-radius:50%; background:#10B981; animation: pulse 1.5s ease infinite; }
+.ri-badge-sched  { background: rgba(245,158,11,.1); color: #b45309; border: 1px solid rgba(245,158,11,.25); }
+.ri-badge-ended  { background: var(--surface-2, #F0F2F7); color: var(--text-muted, #8A94A6); border: 1px solid var(--border, #E3E8EF); }
+
+/* Empty state */
+.jp-empty {
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+  border: 1.5px dashed var(--border, #E3E8EF);
+  border-radius: 16px;
+  background: var(--surface, #fff);
+  animation: fadeUp .45s .15s ease both;
+}
+.jp-empty-icon { font-size: 2.5rem; color: var(--text-subtle, #B0B9C8); margin-bottom: .75rem; }
+.jp-empty-title { font-weight: 700; color: var(--text-secondary, #4A5568); margin-bottom: .375rem; font-size: .9375rem; }
+.jp-empty-sub { font-size: .875rem; color: var(--text-muted, #8A94A6); }
+.jp-empty-link {
+  display: inline-flex; align-items: center; gap: .5rem;
+  margin-top: 1.25rem;
+  padding: .6rem 1.25rem;
+  background: var(--primary-light, rgba(0,107,255,.08));
+  border: 1px solid rgba(0,107,255,.18);
+  border-radius: 10px;
+  color: var(--primary, #006BFF);
+  font-size: .875rem; font-weight: 600;
+  text-decoration: none;
+  transition: background .16s, box-shadow .16s;
+}
+.jp-empty-link:hover { background: rgba(0,107,255,.14); box-shadow: 0 2px 8px rgba(0,107,255,.12); }
+
+/* Icons helper */
+.ms { font-family:'Material Symbols Outlined'; line-height:1; vertical-align:middle; font-style:normal; user-select:none; font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; }
+.spin { display:inline-block; width:16px; height:16px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite; }
+@keyframes spin { to{transform:rotate(360deg)} }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* Dark mode overrides for this page */
+html.dark .jp-card { background: var(--surface, #161B22); border-color: var(--border); box-shadow: none; }
+html.dark .jp-input { background: var(--surface-2, #1C2333); border-color: var(--border); color: var(--text-primary); }
+html.dark .jp-input:focus { background: var(--surface-2); }
+html.dark .stat-cell { background: var(--surface, #161B22); border-color: var(--border); }
+html.dark .quick-card { background: var(--surface-2, #1C2333); border-color: var(--border); }
+html.dark .quick-card:hover { background: var(--surface, #161B22); }
+html.dark .recent-item { background: var(--surface, #161B22); border-color: var(--border); }
+html.dark .recent-item:hover { background: var(--surface-2, #1C2333); }
+html.dark .jp-empty { background: var(--surface, #161B22); border-color: var(--border); }
+
+@media(max-width:600px) {
+  .quick-row { grid-template-columns: 1fr; }
+  .stats-row { grid-template-columns: 1fr 1fr; }
+  .stats-row .stat-cell:last-child { grid-column: span 2; }
+}
+</style>
+
+<div class="jp-page">
+<div class="jp-wrap">
+
+  <!-- Hero -->
+  <div class="jp-hero">
+    <div class="jp-icon">
+      <span class="ms" style="font-size:30px;color:#fff">meeting_room</span>
+    </div>
+    <h1 class="jp-title">Join a Meeting</h1>
+    <p class="jp-sub">Enter a Meeting ID or paste an invite link to instantly join any MeetFlow room.</p>
+  </div>
+
+  <!-- Stats row -->
+  <div class="stats-row">
+    <div class="stat-cell">
+      <div class="stat-num">{{ recent_meetings|length if recent_meetings else 0 }}</div>
+      <div class="stat-lbl">Your Meetings</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-num" id="liveCount">—</div>
+      <div class="stat-lbl">Live Now</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-num" style="font-size:1.375rem">🔒</div>
+      <div class="stat-lbl">Encrypted</div>
+    </div>
+  </div>
+
+  <!-- Main join card -->
+  <div class="jp-card">
+    <label class="jp-label" for="meetingInput">Meeting ID or Invite Link</label>
+
+    <div class="jp-input-wrap">
+      <span class="jp-input-icon">link</span>
+      <input
+        type="text"
+        id="meetingInput"
+        class="jp-input"
+        placeholder="Paste Meeting ID or full invite URL…"
+        autocomplete="off"
+        autofocus
+        oninput="onInput()"
+        onkeydown="if(event.key==='Enter') joinMeeting()"
+      />
+      <button class="jp-input-clear" id="clearBtn" onclick="clearInput()">close</button>
+    </div>
+
+    <div class="jp-error" id="errorMsg">
+      <span class="ms" style="font-size:18px;flex-shrink:0">error</span>
+      <span id="errorText">Invalid Meeting ID or link.</span>
+    </div>
+
+    <button class="jp-btn" id="joinBtn" onclick="joinMeeting()">
+      <span class="ms" style="font-size:20px">videocam</span>
+      <span id="joinBtnText">Join Now</span>
+    </button>
+
+    <div class="paste-hint">
+      <span class="ms" style="font-size:15px">keyboard</span>
+      Press <kbd>Ctrl</kbd>+<kbd>V</kbd> to paste · <kbd>Enter</kbd> to join
+    </div>
+
+    <!-- Quick actions -->
+    <div class="quick-row">
+      <a href="/meeting/new" class="quick-card">
+        <div class="quick-icon" style="background:rgba(0,107,255,.10);border:1px solid rgba(0,107,255,.18)">
+          <span class="ms" style="font-size:20px;color:var(--primary,#006BFF)">add_circle</span>
+        </div>
+        <div class="quick-text">
+          <div class="q-title">New Meeting</div>
+          <div class="q-desc">Start an instant room</div>
+        </div>
+      </a>
+      <a href="/calendar" class="quick-card">
+        <div class="quick-icon" style="background:rgba(0,194,168,.10);border:1px solid rgba(0,194,168,.2)">
+          <span class="ms" style="font-size:20px;color:#00916c">calendar_month</span>
+        </div>
+        <div class="quick-text">
+          <div class="q-title">Calendar</div>
+          <div class="q-desc">View scheduled meetings</div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <!-- Divider -->
+  <div class="jp-divider"><span>Recent Meetings</span></div>
+
+  <!-- Recent meetings -->
+  {% if recent_meetings %}
+  <div class="recent-section">
+    <div class="recent-header">
+      <div class="recent-label">
+        <span class="ms" style="font-size:16px">history</span>
+        Your Recent Meetings
+      </div>
+      <div class="recent-count">{{ recent_meetings|length }}</div>
+    </div>
+    <div class="recent-grid">
+      {% for m in recent_meetings %}
+      <a class="recent-item" href="/join/{{ m.id }}">
+        <div class="recent-avatar">
+          <span class="ms" style="font-size:18px;color:var(--primary,#006BFF)">videocam</span>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div class="recent-name">{{ m.title }}</div>
+          <div class="recent-meta">
+            {% if m.scheduled_at %}{{ m.scheduled_at[:16].replace('T',' ') }}{% else %}No date{% endif %}
+            &nbsp;·&nbsp; {{ m.duration_minutes }} min
+          </div>
+        </div>
+        {% if m.status == 'live' %}
+        <span class="ri-badge ri-badge-live">Live</span>
+        {% elif m.status == 'scheduled' %}
+        <span class="ri-badge ri-badge-sched">Upcoming</span>
+        {% elif m.status == 'completed' %}
+        <span class="ri-badge ri-badge-ended">Ended</span>
+        {% endif %}
+        <span class="ms" style="font-size:18px;color:var(--text-muted,#8A94A6);flex-shrink:0">chevron_right</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% else %}
+  <div class="jp-empty">
+    <div class="jp-empty-icon">
+      <span class="ms">videocam_off</span>
+    </div>
+    <p class="jp-empty-title">No recent meetings</p>
+    <p class="jp-empty-sub">Create or join a meeting to see it here.</p>
+    <a href="/meeting/new" class="jp-empty-link">
+      <span class="ms" style="font-size:17px">add</span>Create First Meeting
+    </a>
+  </div>
+  {% endif %}
+
+</div>
+</div>
+
+<script>
+function onInput() {
+  const val = document.getElementById('meetingInput').value;
+  document.getElementById('clearBtn').style.display = val ? 'flex' : 'none';
+  document.getElementById('errorMsg').classList.remove('show');
+  document.getElementById('meetingInput').style.borderColor = '';
+}
+
+function clearInput() {
+  document.getElementById('meetingInput').value = '';
+  document.getElementById('clearBtn').style.display = 'none';
+  document.getElementById('errorMsg').classList.remove('show');
+  document.getElementById('meetingInput').style.borderColor = '';
+  document.getElementById('meetingInput').focus();
+}
+
+function joinMeeting() {
+  const raw = document.getElementById('meetingInput').value.trim();
+  if (!raw) { showError('Please enter a Meeting ID or invite link.'); return; }
+
+  // CASE 1: Full /meeting/<id>/live URL — go there directly, skip /join/
+  const liveMatch = raw.match(/\/meeting\/([0-9a-f\-]{8,}[^\/\?#]*)\/live/i);
+  if (liveMatch) { setLoading(true); window.location.href = '/meeting/' + liveMatch[1] + '/live'; return; }
+
+  // CASE 2: Any URL containing a UUID — extract and go to /join/<uuid>
+  const uuidRe = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+  const match = raw.match(uuidRe);
+  if (match) { setLoading(true); window.location.href = '/join/' + match[0]; return; }
+
+  // CASE 3: /join/<id> path
+  const pathMatch = raw.match(/\/join\/([^\/?#]+)/);
+  if (pathMatch) { setLoading(true); window.location.href = '/join/' + pathMatch[1]; return; }
+
+  // CASE 4: Plain meeting ID (alphanumeric 6+ chars)
+  if (/^[a-zA-Z0-9_-]{6,}$/.test(raw)) { setLoading(true); window.location.href = '/join/' + raw; return; }
+
+  showError('Invalid Meeting ID or link. Please check and try again.');
+}
+
+function showError(msg) {
+  document.getElementById('errorText').textContent = msg;
+  document.getElementById('errorMsg').classList.add('show');
+  document.getElementById('meetingInput').style.borderColor = '#ef4444';
+  document.getElementById('meetingInput').focus();
+}
+
+function setLoading(on) {
+  const btn = document.getElementById('joinBtn'), txt = document.getElementById('joinBtnText');
+  btn.disabled = on;
+  txt.innerHTML = on ? '<span class="spin"></span> Joining…' : 'Join Now';
+}
+
+(function(){
+  const count = document.getElementById('liveCount');
+  if (!count) return;
+  count.textContent = document.querySelectorAll('.ri-badge-live').length || '0';
+})();
+
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey||e.metaKey) && e.key==='k') {
+    e.preventDefault();
+    document.getElementById('meetingInput').focus();
+    document.getElementById('meetingInput').select();
+  }
+});
+</script>
+{% endblock %}
