@@ -486,12 +486,12 @@ body{min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden}
     {% else %}
     <!-- GUEST / TABS -->
     <div class="tab-bar" style="margin-bottom:.875rem">
-      <button class="tab-btn active" onclick="switchTab('Signin',this)"><span class="ms">login</span>Sign In</button>
-      <button class="tab-btn" onclick="switchTab('Guest',this)"><span class="ms">person</span>Guest</button>
+      <button class="tab-btn" onclick="switchTab('Signin',this)"><span class="ms">login</span>Sign In</button>
+      <button class="tab-btn active" onclick="switchTab('Guest',this)"><span class="ms">person</span>Guest</button>
       <button class="tab-btn" onclick="switchTab('Preview',this)"><span class="ms">videocam</span>AV Test</button>
     </div>
 
-    <div id="tabSignin" class="tab-panel active">
+    <div id="tabSignin" class="tab-panel">
       <p style="font-size:.85rem;color:var(--muted2);margin-bottom:1rem;line-height:1.65">Sign in for full access — camera, mic, AI notes, and meeting history.</p>
       <a href="/login?next=/meeting/{{ mid }}/live" class="btn-join"><span class="ms" style="font-size:20px">login</span>Sign In & Join</a>
       <div class="or-row"><span>or</span></div>
@@ -501,7 +501,7 @@ body{min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden}
       </a>
     </div>
 
-    <div id="tabGuest" class="tab-panel">
+    <div id="tabGuest" class="tab-panel active">
       <p style="font-size:.825rem;color:var(--muted2);margin-bottom:.875rem;line-height:1.65">Join without an account. Camera & mic available; AI features limited.</p>
       <div class="av-wrap" style="margin-bottom:.75rem">
         <video id="guestVideo" class="av-video" autoplay muted playsinline style="display:none"></video>
@@ -615,6 +615,7 @@ body{min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden}
 const MID   = "{{ mid }}";
 const MTIME = "{{ meeting.scheduled_at or '' }}";
 const PARTS = {{ meeting.participants | tojson if meeting.participants else '[]' }};
+const PUBLIC_JOIN_URL = {{ public_join_url | tojson }};
 
 let camStream=null, pvCamStream=null, guestCamStream=null;
 let camOn=false, micOn=false, pvCamOn=false, pvMicOn=false, gCamOn=false, gMicOn=false;
@@ -906,7 +907,7 @@ function joinAsGuest(){
 
 // Share
 function copyLink(){
-  navigator.clipboard.writeText(window.location.href).then(()=>{
+  navigator.clipboard.writeText(PUBLIC_JOIN_URL).then(()=>{
     const b=document.getElementById('copyBtn');
     b.innerHTML='<span class="ms">check</span>Copied!';
     showToast('Invite link copied!','success','check_circle');
@@ -914,9 +915,9 @@ function copyLink(){
   });
 }
 function copyId(){navigator.clipboard.writeText(MID).then(()=>showToast('Meeting ID copied','success','tag'));}
-function shareWhatsApp(){window.open('https://wa.me/?text='+encodeURIComponent('Join my MeetFlow meeting: '+window.location.href),'_blank');}
-function shareEmail(){const s=encodeURIComponent('Meeting Invite: {{ meeting.title }}');const b=encodeURIComponent("You've been invited to a MeetFlow meeting.\n\nJoin here: "+window.location.href);window.location.href='mailto:?subject='+s+'&body='+b;}
-function shareCalendar(){window.open('https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent('{{ meeting.title }}')+'&details='+encodeURIComponent('Join: '+window.location.href),'_blank');}
+function shareWhatsApp(){window.open('https://wa.me/?text='+encodeURIComponent('Join my MeetFlow meeting: '+PUBLIC_JOIN_URL),'_blank');}
+function shareEmail(){const s=encodeURIComponent('Meeting Invite: {{ meeting.title }}');const b=encodeURIComponent("You've been invited to a MeetFlow meeting.\n\nJoin here: "+PUBLIC_JOIN_URL);window.location.href='mailto:?subject='+s+'&body='+b;}
+function shareCalendar(){window.open('https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent('{{ meeting.title }}')+'&details='+encodeURIComponent('Join: '+PUBLIC_JOIN_URL),'_blank');}
 
 // Toast
 function showToast(msg,type,icon){

@@ -199,6 +199,8 @@ automatically detected Render URL. Do not commit `.env` or paste credentials int
 3. Open http://localhost:5000
 4. Without Firebase keys the app runs in **demo mode** locally: type any email on the login page to sign in.
    (Demo mode has no password check and is disabled in production — configure Firebase for real accounts.)
-5. To let other people join from other devices, set `APP_BASE_URL` in `.env` to an address they can reach
-   (e.g. `http://192.168.1.10:5000`) and share a link of the form `/join/<meeting-id>`.
-   Note: video/audio is local to each browser — the app does not stream between participants.
+5. To let other people join from other devices, share a link of the form `/join/<meeting-id>`. Set
+   `APP_BASE_URL` in `.env` to the address they can reach (e.g. your deployed `https://` domain). Guests
+   can join from the Guest tab without creating an account. `localhost` only works on the host's computer;
+   friends outside your local network need a deployed public URL or a secure tunnel. Camera/microphone
+   access from other devices requires HTTPS, and video/audio connections may need TURN on restrictive networks.

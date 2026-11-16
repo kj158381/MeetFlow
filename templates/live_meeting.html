@@ -69,12 +69,14 @@ body{font-family:'DM Sans',sans-serif;background:#080e1a;color:#fff;overflow:hid
     <button onclick="copyLink()" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-80" style="background:rgba(255,255,255,.08);color:#94a3b8">
       <span class="ms" style="font-size:16px">link</span>Copy Link
     </button>
+    {% if not is_guest %}
     <button onclick="openInvite()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold" style="background:rgba(19,91,236,.25);border:1px solid rgba(19,91,236,.4);color:#60a5fa">
       <span class="ms" style="font-size:16px">person_add</span>Invite
     </button>
     <button onclick="endMeeting()" class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-white" style="background:#ef4444">
       <span class="ms" style="font-size:18px">call_end</span>End
     </button>
+    {% endif %}
   </div>
 </header>
 
@@ -108,9 +110,11 @@ body{font-family:'DM Sans',sans-serif;background:#080e1a;color:#fff;overflow:hid
             <span class="ms" style="color:#334155;font-size:30px">person_add</span>
           </div>
           <p class="text-xs" id="remoteStatusText" style="color:#475569">Waiting for {{ 'host' if is_guest else 'guest' }}…</p>
+          {% if not is_guest %}
           <button onclick="openInvite()" class="mt-3 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold mx-auto transition-all" style="background:rgba(19,91,236,.18);color:#60a5fa;border:1px solid rgba(19,91,236,.25)">
             <span class="ms" style="font-size:16px">mail</span>Invite
           </button>
+          {% endif %}
         </div>
         <div id="remoteNameTag" class="hidden absolute bottom-3 left-3 px-2.5 py-1.5 rounded-lg text-xs font-medium" style="background:rgba(0,0,0,.6)"></div>
         <!-- Subtitle overlay -->
@@ -138,6 +142,7 @@ body{font-family:'DM Sans',sans-serif;background:#080e1a;color:#fff;overflow:hid
       <button id="handBtn" onclick="toggleHand()" class="ctrl ctrl-default" title="Raise Hand"><span class="ms" id="handIcon">back_hand</span></button>
       <div style="width:1px;height:32px;background:rgba(255,255,255,.08);margin:0 4px"></div>
       <!-- Translation toggle -->
+      {% if not is_guest %}
       <button id="transBtn" onclick="toggleTranslation()" class="ctrl ctrl-default" title="Live Translation">
         <span class="ms" id="transIcon">translate</span>
         <span id="transDot" class="hidden" style="position:absolute;top:2px;right:2px;width:8px;height:8px;border-radius:50%;background:#3b82f6;border:2px solid #080e1a"></span>
@@ -148,19 +153,24 @@ body{font-family:'DM Sans',sans-serif;background:#080e1a;color:#fff;overflow:hid
         <option value="ar">🇸🇦 Arabic</option><option value="pt">🇧🇷 Portuguese</option><option value="ru">🇷🇺 Russian</option>
         <option value="ko">🇰🇷 Korean</option><option value="ta">🇮🇳 Tamil</option>
       </select>
+      {% endif %}
       <div style="width:1px;height:32px;background:rgba(255,255,255,.08);margin:0 4px"></div>
+      {% if not is_guest %}
       <button onclick="saveNotes()" class="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm text-white" style="background:var(--primary);box-shadow:0 4px 20px rgba(19,91,236,.35)">
         <span class="ms msf" style="font-size:18px">note_add</span><span class="hidden sm:block">Save Notes</span>
       </button>
       <div style="width:1px;height:32px;background:rgba(255,255,255,.08);margin:0 4px"></div>
+      {% endif %}
       <div class="relative">
         <button id="moreBtn" onclick="document.getElementById('moreMenu').classList.toggle('hidden')" class="ctrl ctrl-default"><span class="ms">more_vert</span></button>
         <div id="moreMenu" class="hidden absolute bottom-14 right-0 rounded-2xl overflow-hidden z-50" style="background:#111827;border:1px solid rgba(255,255,255,.1);box-shadow:0 8px 32px rgba(0,0,0,.6);min-width:190px">
           <button onclick="takeScreenshot();document.getElementById('moreMenu').classList.add('hidden')" class="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-white/5 transition-colors" style="color:#94a3b8"><span class="ms" style="font-size:18px">screenshot</span>Screenshot</button>
           <button onclick="document.documentElement.requestFullscreen?.();document.getElementById('moreMenu').classList.add('hidden')" class="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-white/5 transition-colors" style="color:#94a3b8"><span class="ms" style="font-size:18px">fullscreen</span>Fullscreen</button>
+          {% if not is_guest %}
           <button onclick="openInvite();document.getElementById('moreMenu').classList.add('hidden')" class="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-white/5 transition-colors" style="color:#94a3b8"><span class="ms" style="font-size:18px">mail</span>Email Invite</button>
           <div style="height:1px;background:rgba(255,255,255,.06)"></div>
           <button onclick="endMeeting()" class="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-red-500/10 transition-colors" style="color:#f87171"><span class="ms" style="font-size:18px">call_end</span>End Meeting</button>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -172,13 +182,20 @@ body{font-family:'DM Sans',sans-serif;background:#080e1a;color:#fff;overflow:hid
       <div class="flex gap-1 p-1 rounded-xl" style="background:rgba(255,255,255,.04)">
         <button class="sidebar-tab active" id="tabAI" onclick="sideTab('ai')">🤖 AI</button>
         <button class="sidebar-tab" id="tabLive" onclick="sideTab('live')">📝 Live</button>
+        {% if not is_guest %}
         <button class="sidebar-tab" id="tabTrans" onclick="sideTab('trans')">🌐 Translate</button>
+        {% endif %}
         <button class="sidebar-tab" id="tabChat" onclick="sideTab('chat')">💬 Chat</button>
       </div>
     </div>
 
     <!-- AI HUB -->
     <div id="pAI" class="side-panel active overflow-y-auto p-3 space-y-3">
+      {% if is_guest %}
+      <div class="rounded-xl p-3 text-xs leading-relaxed" style="background:rgba(19,91,236,.12);border:1px solid rgba(19,91,236,.25);color:#94a3b8">
+        Guest access includes audio and video. Sign in to use AI notes, translation, and saved meeting features.
+      </div>
+      {% else %}
       <div class="rounded-xl p-3 flex items-center gap-3" style="background:rgba(19,91,236,.12);border:1px solid rgba(19,91,236,.25)">
         <span class="ms msf text-blue-400 text-2xl" style="animation:pulse 2s infinite">auto_awesome</span>
         <div class="flex-1"><p class="text-sm font-semibold">AI Active</p><p class="text-xs" style="color:#64748b">Capturing key points live</p></div>
@@ -213,6 +230,7 @@ body{font-family:'DM Sans',sans-serif;background:#080e1a;color:#fff;overflow:hid
         </button>
         <p id="transSummaryOut" class="hidden mt-2 text-xs leading-relaxed" style="color:#60a5fa"></p>
       </div>
+      {% endif %}
     </div>
 
     <!-- LIVE TRANSCRIPT -->
@@ -231,6 +249,7 @@ body{font-family:'DM Sans',sans-serif;background:#080e1a;color:#fff;overflow:hid
     </div>
 
     <!-- TRANSLATION -->
+    {% if not is_guest %}
     <div id="pTrans" class="side-panel overflow-y-auto p-3 space-y-3">
       <div class="flex items-center justify-between">
         <h3 class="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5" style="color:#cbd5e1"><span class="ms" style="font-size:16px;color:#60a5fa">translate</span>Live Translation</h3>
@@ -266,6 +285,7 @@ body{font-family:'DM Sans',sans-serif;background:#080e1a;color:#fff;overflow:hid
       <!-- History -->
       <div id="transHist" class="space-y-2"></div>
     </div>
+    {% endif %}
 
     <!-- CHAT -->
     <div id="pChat" class="side-panel">
@@ -342,6 +362,7 @@ const MEETING_ID    = "{{ meeting.id }}";
 const MEETING_TITLE = "{{ meeting.title | e }}";
 const MEETING_TIME  = "{{ meeting.scheduled_at or '' }}";
 const USER_NAME     = "{{ user.name | e }}";
+const PUBLIC_JOIN_URL = {{ public_join_url | tojson }};
 const IS_GUEST = {{ 'true' if is_guest else 'false' }};
 const TRANS_ON_INIT = {{ 'true' if settings.feat_live_translation else 'false' }};
 const TRANSLATE_API_ENABLED = {{ 'true' if translate_api_enabled else 'false' }};
@@ -577,7 +598,8 @@ function setLang(lang){
   document.querySelectorAll('[data-lang]').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll(`[data-lang="${lang}"]`).forEach(b=>b.classList.add('active'));
   const sel=document.getElementById('langSel');if(sel)sel.value=lang;
-  document.getElementById('transStatusLabel').textContent=`Target: ${lang.toUpperCase()} selected`;
+  const status=document.getElementById('transStatusLabel');
+  if(status)status.textContent=`Target: ${lang.toUpperCase()} selected`;
 }
 
 // ── LIVE VOICE TRANSLATION (Web Speech API) ──────────────────────────────────
@@ -835,7 +857,7 @@ function openInvite(){
   checkGmail();document.getElementById('inviteModal').classList.remove('hidden');
 }
 function closeInvite(){document.getElementById('inviteModal').classList.add('hidden');}
-function copyLink(){navigator.clipboard?.writeText(window.location.href).then(()=>toast('Link copied!','link'));}
+function copyLink(){navigator.clipboard?.writeText(PUBLIC_JOIN_URL).then(()=>toast('Link copied!','link'));}
 
 async function checkGmail(){
   const ico=document.getElementById('gmailIco'),msg=document.getElementById('gmailMsg');
@@ -880,7 +902,7 @@ async function sendInvites(){
         recipients: emails,
         meeting_title: MEETING_TITLE,
         meeting_time: MEETING_TIME,
-        meeting_link: window.location.href
+        meeting_link: PUBLIC_JOIN_URL
       })
     });
     const data = await res.json();

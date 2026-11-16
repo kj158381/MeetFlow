@@ -151,6 +151,15 @@ def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in Config.ALLOWED_EXTENSIONS
 
 
+def public_meeting_join_url(mid):
+    """Build the guest URL from the configured public host or current LAN host."""
+    base_url = Config.APP_BASE_URL
+    if (base_url == "http://localhost:5000"
+            and request.host not in ("localhost:5000", "127.0.0.1:5000")):
+        base_url = request.url_root.rstrip("/")
+    return f"{base_url}{url_for('join_meeting', mid=mid)}"
+
+
 # ─── Translation helpers ──────────────────────────────────────────────────────
 
 def google_translate_api(text, target_lang, source_lang="en"):
@@ -392,10 +401,11 @@ def _register_routes(app):
             desc  = request.form.get("description", "").strip()
             loc   = request.form.get("location", "").strip()
             link  = request.form.get("meeting_link", "").strip()
+            join_url = public_meeting_join_url(mid)
             m = Meeting(id=mid, user_id=user["id"], title=title, scheduled_at=sat,
                         duration_minutes=dur, participants=json.dumps(parts),
                         description=desc, location=loc,
-                        meeting_link=link or url_for("live_meeting", mid=mid, _external=True))
+                        meeting_link=link or join_url)
             n = MeetingNote(id=str(uuid.uuid4()), meeting_id=mid, user_id=user["id"],
                             title=f"Notes: {title}", content="", key_points="[]")
             db.session.add(m); db.session.add(n)
@@ -405,7 +415,7 @@ def _register_routes(app):
                     meeting_id=mid, title=title, start_time=sat, end_time=end.isoformat()))
             except Exception: pass
             db.session.commit()
-            if parts: _send_invites_bg(app, user, mid, title, sat, parts)
+            if parts: _send_invites_bg(app, user, mid, title, sat, parts, join_url)
             flash(f"Meeting '{title}' created successfully!", "success")
             return redirect(url_for("live_meeting", mid=mid))
         contacts = Contact.query.filter_by(user_id=user["id"]).order_by(Contact.name).all()
@@ -415,12 +425,10 @@ def _register_routes(app):
     def meeting_redirect(mid):
         """Bare /meeting/<id> links (from emails).
         Logged-in users go straight to the live room.
-        Guests are shown the join preview page to sign in first.
+        Guests are shown the join page, where they can continue without an account.
         """
         if "user" in session:
             return redirect(url_for("live_meeting", mid=mid))
-        # Not logged in – save destination so after login they land in the room
-        session["login_next"] = url_for("live_meeting", mid=mid)
         return redirect(url_for("join_meeting", mid=mid))
 
     @app.route("/meeting/<mid>/live")
@@ -434,6 +442,8 @@ def _register_routes(app):
         #    room still loads instead of returning 404.
         if not meeting:
             meeting = Meeting.query.filter(Meeting.id.like(mid[:8] + "%")).first()
+            if meeting:
+                mid = meeting.id
         if not meeting:
             import datetime as _dt
             _stub_dict = {
@@ -458,7 +468,8 @@ def _register_routes(app):
             notes = MeetingNote.query.filter_by(meeting_id=mid).first()
             return render_template("live_meeting.html", user=guest_user, meeting=meeting.to_dict(),
                 notes=notes, settings={}, translate_api_enabled=Config.TRANSLATE_API_ENABLED,
-                ai_enabled=Config.AI_ENABLED, is_guest=True)
+                ai_enabled=Config.AI_ENABLED, is_guest=True,
+                public_join_url=public_meeting_join_url(mid))
         if "user" not in session:
             session["login_next"] = url_for("live_meeting", mid=mid)
             return redirect(url_for("join_meeting", mid=mid))
@@ -467,7 +478,8 @@ def _register_routes(app):
         return render_template("live_meeting.html", user=user, meeting=meeting.to_dict(),
             notes=notes, settings=get_settings(user["id"]),
             translate_api_enabled=Config.TRANSLATE_API_ENABLED,
-            ai_enabled=Config.AI_ENABLED, is_guest=False)
+            ai_enabled=Config.AI_ENABLED, is_guest=False,
+            public_join_url=public_meeting_join_url(mid))
 
     @app.route("/meeting-notes")
     @login_required
@@ -515,6 +527,8 @@ def _register_routes(app):
         # Try prefix match for short IDs
         if not meeting and len(mid) >= 8:
             meeting = Meeting.query.filter(Meeting.id.like(mid[:8] + "%")).first()
+            if meeting:
+                mid = meeting.id
 
         user = session.get("user")
 
@@ -530,10 +544,11 @@ def _register_routes(app):
             return render_template("join_meeting.html",
                 meeting=stub_meeting, user=user,
                 live_url="/meeting/" + mid + "/live" if user else None,
-                mid=mid)
+                mid=mid, public_join_url=public_meeting_join_url(mid))
 
         return render_template("join_meeting.html", meeting=meeting.to_dict(), user=user,
-            live_url=url_for("live_meeting", mid=mid) if user else None, mid=mid)
+            live_url=url_for("live_meeting", mid=mid) if user else None, mid=mid,
+            public_join_url=public_meeting_join_url(mid))
 
     @app.route("/settings")
     @login_required
@@ -1170,12 +1185,11 @@ def _register_routes(app):
     def server_error(e): return render_template("error.html", code=500, message="Internal server error."), 500
 
 
-def _send_invites_bg(app, user, mid, title, sat, recipients):
+def _send_invites_bg(app, user, mid, title, sat, recipients, join_url):
     def _do():
         with app.app_context():
             s = get_settings(user["id"]); gu = s.get("gmail_address",""); gp = s.get("gmail_app_password","")
             smtp_ok = bool(s.get("smtp_enabled") and gu and gp)
-            join_url = f"{Config.APP_BASE_URL}/join/{mid}"
             for email in recipients:
                 if not email or "@" not in email: continue
                 html = email_html_template(f"📅 {title}", "Hi there,",
