@@ -212,9 +212,10 @@ body{font-family:'Inter',sans-serif;background:var(--dark);min-height:100vh;disp
 {% if firebase_enabled %}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, sendPasswordResetEmail, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 const firebaseConfig = {{ firebase_config | tojson }};
 const fbApp=initializeApp(firebaseConfig),auth=getAuth(fbApp),gProv=new GoogleAuthProvider();
+const isMobileBrowser=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 const $=id=>document.getElementById(id);
 function showError(m){$('msgError').classList.add('show');$('msgErrorText').textContent=m;$('msgOk').classList.remove('show');$('msgInfo').classList.remove('show')}
 function showOk(m){$('msgOk').classList.add('show');$('msgOkText').textContent=m;$('msgError').classList.remove('show');$('msgInfo').classList.remove('show')}
@@ -238,8 +239,9 @@ async function sendToServer(user,name){
   }catch(e){console.error('sendToServer failed:',e);showError('Failed to connect to the MeetFlow server. Is it running?');btnReset('siBtn','siBtnText','Sign In');btnReset('googleBtn','googleBtnText','Continue with Google')}
 }
 window.fbSignIn=async()=>{clearMsgs();const e=$('si_email')?.value.trim(),p=$('si_pass')?.value;if(!e)return showError('Enter your email.');if(!p)return showError('Enter your password.');btnLoading('siBtn','siBtnText','Signing in…');try{const c=await signInWithEmailAndPassword(auth,e,p);await sendToServer(c.user,c.user.displayName)}catch(e){showError(getErrMsg(e.code));btnReset('siBtn','siBtnText','Sign In')}};
-window.fbSignInGoogle=async()=>{clearMsgs();btnLoading('googleBtn','googleBtnText','Opening Google…');try{const r=await signInWithPopup(auth,gProv);await sendToServer(r.user,r.user.displayName)}catch(e){e.code==='auth/popup-closed-by-user'?showInfo('Sign-in cancelled.'):showError(getErrMsg(e.code));btnReset('googleBtn','googleBtnText','Continue with Google')}};
+window.fbSignInGoogle=async()=>{clearMsgs();btnLoading('googleBtn','googleBtnText','Opening Google…');try{if(isMobileBrowser){await signInWithRedirect(auth,gProv);return}const r=await signInWithPopup(auth,gProv);await sendToServer(r.user,r.user.displayName)}catch(e){if(e.code==='auth/popup-blocked'&&!isMobileBrowser){try{await signInWithRedirect(auth,gProv);return}catch(redirectError){e=redirectError}}e.code==='auth/popup-closed-by-user'?showInfo('Sign-in cancelled.'):showError(getErrMsg(e.code));btnReset('googleBtn','googleBtnText','Continue with Google')}};
 window.fbResetPassword=async()=>{clearMsgs();const e=$('si_email')?.value.trim();if(!e||!e.includes('@'))return showInfo('Enter your email above first.');try{await sendPasswordResetEmail(auth,e);showOk(`Reset email sent to ${e}!`)}catch(e){showError(getErrMsg(e.code))}};
+getRedirectResult(auth).catch(e=>{showError(getErrMsg(e.code));btnReset('googleBtn','googleBtnText','Continue with Google')});
 document.addEventListener('keydown',e=>{if(e.key==='Enter')fbSignIn()});
 const justLoggedOut=new URLSearchParams(window.location.search).get('logout')==='1'||sessionStorage.getItem('meetflow_logged_out')==='1';
 if(justLoggedOut){sessionStorage.removeItem('meetflow_logged_out');import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js").then(({getAuth,signOut})=>{signOut(getAuth()).catch(()=>{})})}
