@@ -189,8 +189,10 @@ Uploaded avatars in `static/uploads` are not persistent on the free service.
 5. Add optional Gemini, Google Translate, SMTP, and Google OAuth settings in Render's
    environment dashboard if you use those features.
 
-Set `APP_BASE_URL` to your Render URL if you use a custom domain or need to override the
-automatically detected Render URL. Do not commit `.env` or paste credentials into GitHub.
+The Render Blueprint sets `APP_BASE_URL` to `https://meetflow-0b1t.onrender.com`, so meeting
+and invitation links use the public host instead of `localhost`. If you use a custom domain,
+update `APP_BASE_URL` in Render's environment settings. Keep `http://localhost:5000` in your
+local `.env` for local development. Do not commit `.env` or paste credentials into GitHub.
 
 ## Quick start (any computer)
 

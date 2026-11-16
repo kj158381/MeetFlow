@@ -8,6 +8,8 @@ services:
     envVars:
       - key: APP_ENV
         value: production
+      - key: APP_BASE_URL
+        value: https://meetflow-0b1t.onrender.com
       - key: SECRET_KEY
         generateValue: true
       - key: DATABASE_URL
