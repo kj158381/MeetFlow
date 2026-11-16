@@ -71,3 +71,14 @@ def exchange_google_code(code: str, client_id: str, client_secret: str, redirect
         "grant_type": "authorization_code",
     }, timeout=10)
     return resp.json()
+
+
+def refresh_google_token(refresh_token: str, client_id: str, client_secret: str) -> dict:
+    """Exchange a refresh token for a new Google access token."""
+    resp = requests.post("https://oauth2.googleapis.com/token", data={
+        "refresh_token": refresh_token,
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "grant_type": "refresh_token",
+    }, timeout=10)
+    return resp.json()

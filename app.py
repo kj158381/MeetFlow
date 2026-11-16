@@ -2,7 +2,7 @@
 app.py — Meeting Automation
 Main Flask application factory + all route registrations.
 """
-import os, json, uuid, logging, requests, threading
+import os, json, uuid, logging, requests, threading, secrets
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import (Flask, render_template, request, redirect,
@@ -13,7 +13,8 @@ from database.models import (db, User, Meeting, MeetingNote, Task,
                               MeetingSignal, Contact, CalendarEvent, EmailNotification, UserSettings)
 from utils.helpers import (send_gmail_smtp, email_html_template, pick_avatar_color)
 from services.gemini_service import extract_key_points, gemini_translate
-from services.google_auth_service import verify_firebase_token, exchange_google_code
+from services.google_auth_service import (verify_firebase_token, exchange_google_code,
+                                          refresh_google_token)
 from services.gmail_service import list_messages, get_message, parse_message_headers, extract_body
 from services.contacts_service import fetch_google_contacts
 from services.calendar_service import fetch_google_calendar_events
@@ -91,22 +92,67 @@ def current_user():
     return session.get("user")
 
 def get_google_access_token():
-    """Return Google access token from session, falling back to DB if missing."""
-    tok = session.get("google_access_token")
-    if tok:
-        return tok
+    """Return the current user's Google access token from the database."""
     user = current_user()
-    if user:
-        try:
-            s = UserSettings.query.filter_by(user_id=user["id"]).first()
-            if s and s.google_access_token:
-                # Restore into session for subsequent requests
-                session["google_access_token"]  = s.google_access_token
-                session["google_refresh_token"] = s.google_refresh_token or ""
-                return s.google_access_token
-        except Exception:
-            pass
-    return None
+    if not user:
+        return None
+    settings = UserSettings.query.filter_by(user_id=user["id"]).first()
+    return settings.google_access_token if settings else None
+
+
+def refresh_google_access_token():
+    """Refresh and persist the current user's Google access token."""
+    user = current_user()
+    if not user:
+        return None
+
+    settings = UserSettings.query.filter_by(user_id=user["id"]).first()
+    refresh_token = settings.google_refresh_token if settings else ""
+    if not refresh_token:
+        if settings and settings.google_access_token:
+            settings.google_access_token = ""
+            db.session.commit()
+        return None
+
+    try:
+        token_data = refresh_google_token(
+            refresh_token, Config.GOOGLE_OAUTH_CLIENT_ID, Config.GOOGLE_OAUTH_CLIENT_SECRET
+        )
+    except requests.RequestException:
+        logger.exception("Google OAuth token refresh request failed")
+        return None
+    except ValueError:
+        logger.exception("Google OAuth token refresh returned invalid JSON")
+        return None
+
+    access_token = token_data.get("access_token")
+    if not access_token:
+        error = token_data.get("error", "unknown error")
+        logger.warning("Google OAuth token refresh failed: %s", error)
+        if error == "invalid_grant":
+            if settings:
+                settings.google_access_token = ""
+                settings.google_refresh_token = ""
+                db.session.commit()
+        return None
+
+    if settings:
+        settings.google_access_token = access_token
+        if token_data.get("refresh_token"):
+            settings.google_refresh_token = token_data["refresh_token"]
+        db.session.commit()
+    return access_token
+
+
+def google_api_error_message(data, service):
+    error = data.get("error", {}) if isinstance(data, dict) else {}
+    if isinstance(error, dict):
+        detail = error.get("message") or error.get("status")
+    else:
+        detail = str(error) if error else ""
+    if detail:
+        return f"{service} API error: {detail}"
+    return f"{service} API request failed."
 
 
 # ─── DB helpers ───────────────────────────────────────────────────────────────
@@ -250,16 +296,6 @@ def _register_routes(app):
         session.permanent = True
         session["user"] = {"id": final_uid or uid, "email": email, "name": name,
                            "picture": picture, "auth_type": "firebase", "email_verified": bool(email_verified)}
-        # ── Restore persisted Google tokens into session ──
-        try:
-            _uid = final_uid or uid
-            s = UserSettings.query.filter_by(user_id=_uid).first()
-            if s and s.google_access_token:
-                session["google_access_token"]  = s.google_access_token
-                session["google_refresh_token"] = s.google_refresh_token or ""
-        except Exception:
-            pass
-
         user_agent = request.headers.get("User-Agent", "Unknown")[:120]  # read NOW: request is gone inside the thread
         def _alert():
             with app.app_context():
@@ -303,14 +339,6 @@ def _register_routes(app):
         session.permanent = True
         session["user"] = {"id": final_uid or uid, "email": email, "name": name,
                            "picture": "", "auth_type": "demo", "email_verified": False}
-        # ── Restore persisted Google tokens into session ──
-        try:
-            s = UserSettings.query.filter_by(user_id=final_uid or uid).first()
-            if s and s.google_access_token:
-                session["google_access_token"]  = s.google_access_token
-                session["google_refresh_token"] = s.google_refresh_token or ""
-        except Exception:
-            pass
         next_url = safe_next(request.form.get("next") or request.args.get("next") or session.pop("login_next", None))
         session.pop("login_next", None)
         return redirect(next_url)
@@ -559,6 +587,7 @@ def _register_routes(app):
             email_count=email_count, firebase_enabled=Config.FIREBASE_ENABLED,
             translate_api_enabled=Config.TRANSLATE_API_ENABLED, ai_enabled=Config.AI_ENABLED,
             google_oauth_enabled=Config.GOOGLE_OAUTH_ENABLED,
+            google_redirect_uri=Config.APP_BASE_URL.rstrip("/") + url_for("google_callback"),
             google_connected=bool(get_google_access_token()))
 
     @app.route("/settings/save", methods=["POST"])
@@ -895,11 +924,27 @@ def _register_routes(app):
         if not access_token:
             return jsonify({"success": False, "error": "Not connected to Google", "needs_auth": True,
                             "auth_url": url_for("google_connect")}), 401
-        status, google_contacts = fetch_google_contacts(access_token)
+        try:
+            status, google_contacts = fetch_google_contacts(access_token)
+        except requests.RequestException:
+            logger.exception("Google contacts request failed")
+            return jsonify({"success": False, "error": "Could not reach Google Contacts. Try again."}), 502
         if status == 401:
-            session.pop("google_access_token", None)
-            return jsonify({"success": False, "error": "Token expired", "needs_auth": True,
+            access_token = refresh_google_access_token()
+            if access_token:
+                try:
+                    status, google_contacts = fetch_google_contacts(access_token)
+                except requests.RequestException:
+                    logger.exception("Google contacts retry failed")
+                    return jsonify({"success": False, "error": "Could not reach Google Contacts. Try again."}), 502
+        if status == 401:
+            return jsonify({"success": False, "error": "Google authorization expired. Reconnect your account.",
+                            "needs_auth": True,
                             "auth_url": url_for("google_connect")}), 401
+        if status != 200:
+            return jsonify({"success": False,
+                            "error": f"Google Contacts API request failed (HTTP {status}). "
+                                     "Check that the People API is enabled and reconnect Google."}), 502
         imported = 0
         for gc in google_contacts:
             email = gc.get("email",""); name = gc.get("name","")
@@ -1045,42 +1090,50 @@ def _register_routes(app):
         if not Config.GOOGLE_OAUTH_ENABLED:
             flash("Configure Google OAuth credentials in Settings first.", "info")
             return redirect(url_for("settings"))
-        redirect_uri = url_for("google_callback", _external=True)
+        redirect_uri = Config.APP_BASE_URL.rstrip("/") + url_for("google_callback")
+        state = secrets.token_urlsafe(32)
+        session["google_oauth_state"] = state
         params = {"client_id": Config.GOOGLE_OAUTH_CLIENT_ID, "redirect_uri": redirect_uri,
                   "response_type": "code",
                   "scope": "https://www.googleapis.com/auth/contacts.readonly https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/gmail.readonly openid email profile",
-                  "access_type": "offline", "prompt": "consent"}
+                  "access_type": "offline", "prompt": "consent", "state": state}
         return redirect("https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params))
 
     @app.route("/auth/google/callback")
     def google_callback():
         code = request.args.get("code"); error = request.args.get("error")
+        if "user" not in session:
+            flash("Session expired. Sign in again, then reconnect Google.", "error")
+            return redirect(url_for("login"))
+        expected_state = session.pop("google_oauth_state", "")
+        received_state = request.args.get("state", "")
+        if not expected_state or not secrets.compare_digest(expected_state, received_state):
+            flash("Google connection could not be verified. Please try connecting again.", "error")
+            return redirect(url_for("contacts"))
         if error or not code:
             flash(f"Google sign-in cancelled: {error or 'no code'}", "error")
             return redirect(url_for("contacts"))
-        if "user" not in session:
-            flash("Session expired.", "error"); return redirect(url_for("login"))
         try:
-            redirect_uri = url_for("google_callback", _external=True)
+            redirect_uri = Config.APP_BASE_URL.rstrip("/") + url_for("google_callback")
             token_resp = exchange_google_code(code, Config.GOOGLE_OAUTH_CLIENT_ID,
                                               Config.GOOGLE_OAUTH_CLIENT_SECRET, redirect_uri)
             if token_resp.get("access_token"):
                 access_tok  = token_resp["access_token"]
                 refresh_tok = token_resp.get("refresh_token", "")
-                session["google_access_token"]  = access_tok
-                session["google_refresh_token"] = refresh_tok
-                # ── Persist tokens to DB so they survive session expiry ──
                 user = current_user()
-                if user:
-                    s = UserSettings.query.filter_by(user_id=user["id"]).first()
-                    if s:
-                        s.google_access_token  = access_tok
-                        if refresh_tok:
-                            s.google_refresh_token = refresh_tok
-                        db.session.commit()
+                settings = UserSettings.query.filter_by(user_id=user["id"]).first()
+                if not settings:
+                    get_settings(user["id"])
+                    settings = UserSettings.query.filter_by(user_id=user["id"]).first()
+                # ── Persist tokens to DB so they survive session expiry ──
+                if settings:
+                    settings.google_access_token = access_tok
+                    if refresh_tok:
+                        settings.google_refresh_token = refresh_tok
+                    db.session.commit()
                 flash("✅ Google account connected! Contacts & Calendar access enabled.", "success")
                 return redirect(url_for("contacts") + "?synced=1")
-            flash(f"❌ Google auth failed: {token_resp.get('error','unknown')}", "error")
+            flash(f"Google authorization failed: {token_resp.get('error_description') or token_resp.get('error', 'unknown error')}", "error")
         except Exception as e:
             flash(f"❌ Google auth error: {e}", "error")
         return redirect(url_for("contacts"))
@@ -1090,10 +1143,25 @@ def _register_routes(app):
     def api_google_calendar_sync():
         user = current_user(); access_token = get_google_access_token()
         if not access_token: return jsonify({"success": False, "error": "Not connected", "needs_auth": True}), 401
-        status, events = fetch_google_calendar_events(access_token)
+        try:
+            status, events = fetch_google_calendar_events(access_token)
+        except requests.RequestException:
+            logger.exception("Google Calendar request failed")
+            return jsonify({"success": False, "error": "Could not reach Google Calendar. Try again."}), 502
         if status == 401:
-            session.pop("google_access_token", None)
-            return jsonify({"success": False, "error": "Token expired", "needs_auth": True}), 401
+            access_token = refresh_google_access_token()
+            if access_token:
+                try:
+                    status, events = fetch_google_calendar_events(access_token)
+                except requests.RequestException:
+                    logger.exception("Google Calendar retry failed")
+                    return jsonify({"success": False, "error": "Could not reach Google Calendar. Try again."}), 502
+        if status == 401:
+            return jsonify({"success": False, "error": "Google authorization expired. Reconnect your account.",
+                            "needs_auth": True, "auth_url": url_for("google_connect")}), 401
+        if status != 200:
+            return jsonify({"success": False,
+                            "error": f"Google Calendar API request failed (HTTP {status})."}), 502
         synced = 0
         for event in events:
             if CalendarEvent.query.filter_by(id=event["id"], user_id=user["id"]).first(): continue
@@ -1110,15 +1178,45 @@ def _register_routes(app):
             return jsonify({"success": False, "error": "Not connected", "needs_auth": True,
                             "auth_url": url_for("google_connect")}), 401
         max_results = int(request.args.get("maxResults", 20)); query = request.args.get("q","")
-        status, data = list_messages(access_token, max_results, query)
+        try:
+            status, data = list_messages(access_token, max_results, query)
+        except requests.RequestException:
+            logger.exception("Gmail message-list request failed")
+            return jsonify({"success": False, "error": "Could not reach Gmail. Try again."}), 502
         if status == 401:
-            session.pop("google_access_token", None)
-            return jsonify({"success": False, "error": "Token expired", "needs_auth": True,
+            access_token = refresh_google_access_token()
+            if access_token:
+                try:
+                    status, data = list_messages(access_token, max_results, query)
+                except requests.RequestException:
+                    logger.exception("Gmail message-list retry failed")
+                    return jsonify({"success": False, "error": "Could not reach Gmail. Try again."}), 502
+        if status == 401:
+            return jsonify({"success": False, "error": "Google authorization expired. Reconnect your account.",
+                            "needs_auth": True,
                             "auth_url": url_for("google_connect")}), 401
+        if status != 200:
+            return jsonify({"success": False, "error": google_api_error_message(data, "Gmail")}), 502
         messages = []
         for m in data.get("messages", [])[:max_results]:
-            msg_status, detail = get_message(access_token, m["id"])
-            if msg_status != 200: continue
+            try:
+                msg_status, detail = get_message(access_token, m["id"])
+            except requests.RequestException:
+                logger.exception("Gmail message-detail request failed")
+                return jsonify({"success": False, "error": "Could not reach Gmail. Try again."}), 502
+            if msg_status == 401:
+                access_token = refresh_google_access_token()
+                if access_token:
+                    try:
+                        msg_status, detail = get_message(access_token, m["id"])
+                    except requests.RequestException:
+                        logger.exception("Gmail message-detail retry failed")
+                        return jsonify({"success": False, "error": "Could not reach Gmail. Try again."}), 502
+            if msg_status == 401:
+                return jsonify({"success": False, "error": "Google authorization expired. Reconnect your account.",
+                                "needs_auth": True, "auth_url": url_for("google_connect")}), 401
+            if msg_status != 200:
+                return jsonify({"success": False, "error": google_api_error_message(detail, "Gmail")}), 502
             payload = detail.get("payload",{}); headers = parse_message_headers(payload)
             messages.append({"id": m["id"], **headers, "snippet": detail.get("snippet",""),
                               "labelIds": detail.get("labelIds",[])})
@@ -1128,11 +1226,27 @@ def _register_routes(app):
     @api_login_required
     def api_gmail_message_detail(message_id):
         access_token = get_google_access_token()
-        if not access_token: return jsonify({"success": False, "error": "Not connected"}), 401
-        msg_status, data = get_message(access_token, message_id)
+        if not access_token:
+            return jsonify({"success": False, "error": "Not connected", "needs_auth": True,
+                            "auth_url": url_for("google_connect")}), 401
+        try:
+            msg_status, data = get_message(access_token, message_id)
+        except requests.RequestException:
+            logger.exception("Gmail message-detail request failed")
+            return jsonify({"success": False, "error": "Could not reach Gmail. Try again."}), 502
         if msg_status == 401:
-            session.pop("google_access_token", None)
-            return jsonify({"success": False, "error": "Token expired", "needs_auth": True}), 401
+            access_token = refresh_google_access_token()
+            if access_token:
+                try:
+                    msg_status, data = get_message(access_token, message_id)
+                except requests.RequestException:
+                    logger.exception("Gmail message-detail retry failed")
+                    return jsonify({"success": False, "error": "Could not reach Gmail. Try again."}), 502
+        if msg_status == 401:
+            return jsonify({"success": False, "error": "Google authorization expired. Reconnect your account.",
+                            "needs_auth": True, "auth_url": url_for("google_connect")}), 401
+        if msg_status != 200:
+            return jsonify({"success": False, "error": google_api_error_message(data, "Gmail")}), 502
         payload = data.get("payload",{}); body = []
         extract_body(payload, body); headers = parse_message_headers(payload)
         return jsonify({"success": True, "id": message_id, **headers,

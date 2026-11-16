@@ -111,9 +111,12 @@ Open **http://localhost:5000**
 > ⚠️ This is **different** from Firebase Auth!
 1. [console.cloud.google.com](https://console.cloud.google.com)
 2. APIs & Services → Credentials → Create → OAuth 2.0 Client
-3. Set **Authorized Redirect URI**: `http://localhost:5000/auth/google/callback`
-4. Enable APIs: **People API**, **Calendar API**, **Gmail API**
-5. Copy Client ID and Secret to `.env`
+3. Set the local **Authorized Redirect URI**: `http://localhost:5000/auth/google/callback`
+   (for Render, use `https://meetflow-0b1t.onrender.com/auth/google/callback`).
+4. Enable **People API**, **Calendar API**, and **Gmail API**; add your account as an OAuth
+   test user if the consent screen is in testing.
+5. Set `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` in `.env` locally, or in
+   Render's environment settings for the hosted app.
 
 ### Gemini AI (Free)
 1. [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
@@ -186,8 +189,9 @@ Uploaded avatars in `static/uploads` are not persistent on the free service.
 4. After the first deploy, add your Render hostname to Firebase Authentication's authorized
    domains. If using Google OAuth, add
    `https://<your-render-host>/auth/google/callback` as an authorized redirect URI.
-5. Add optional Gemini, Google Translate, SMTP, and Google OAuth settings in Render's
-   environment dashboard if you use those features.
+5. Add `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` in Render's environment
+   dashboard to enable Google Contacts, Calendar, and Gmail. Also add optional Gemini,
+   Google Translate, and SMTP settings if you use those features.
 
 The Render Blueprint sets `APP_BASE_URL` to `https://meetflow-0b1t.onrender.com`, so meeting
 and invitation links use the public host instead of `localhost`. If you use a custom domain,

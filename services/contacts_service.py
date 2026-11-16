@@ -22,6 +22,12 @@ def fetch_google_contacts(access_token: str, page_size: int = 200) -> tuple[int,
         timeout=10
     )
     if resp.status_code != 200:
+        try:
+            error = resp.json().get("error", {})
+            message = error.get("message", "Google People API request failed.") if isinstance(error, dict) else str(error)
+        except ValueError:
+            message = "Google People API returned an invalid response."
+        logger.warning("Google People API request failed (%s): %s", resp.status_code, message)
         return resp.status_code, []
 
     data     = resp.json()

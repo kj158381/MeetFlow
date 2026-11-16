@@ -298,11 +298,15 @@
                 </div>
                 <div class="flex items-start gap-2.5">
                   <span class="size-5 rounded-full bg-amber-200 text-amber-800 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
-                  <p class="text-xs text-amber-800">Add Authorized Redirect URI: <code class="bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded font-mono text-xs select-all">{{ request.host_url }}auth/google/callback</code></p>
+                  <p class="text-xs text-amber-800">Add this Authorized Redirect URI to your Google OAuth client: <code class="bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded font-mono text-xs select-all">{{ google_redirect_uri }}</code></p>
                 </div>
                 <div class="flex items-start gap-2.5">
                   <span class="size-5 rounded-full bg-amber-200 text-amber-800 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
-                  <p class="text-xs text-amber-800">Copy the Client ID &amp; Secret → paste into your <code class="bg-amber-100 border border-amber-200 px-1 rounded font-mono text-xs">.env</code> file as <code class="bg-amber-100 border border-amber-200 px-1 rounded font-mono text-xs">GOOGLE_OAUTH_CLIENT_ID</code> and <code class="bg-amber-100 border border-amber-200 px-1 rounded font-mono text-xs">GOOGLE_OAUTH_CLIENT_SECRET</code>, then restart the server.</p>
+                  <p class="text-xs text-amber-800">Set <code>GOOGLE_OAUTH_CLIENT_ID</code> and <code>GOOGLE_OAUTH_CLIENT_SECRET</code> in Render's environment settings for the hosted app, or in your local <code>.env</code> and restart locally.</p>
+                </div>
+                <div class="flex items-start gap-2.5">
+                  <span class="size-5 rounded-full bg-amber-200 text-amber-800 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">5</span>
+                  <p class="text-xs text-amber-800">Enable the <strong>People API</strong> and <strong>Gmail API</strong> in Google Cloud. If the OAuth consent screen is in testing, add your Google account as a test user.</p>
                 </div>
               </div>
             </div>
@@ -326,6 +330,7 @@
                     <p class="text-xs text-blue-800 font-semibold">💡 Quick fix: Add yourself as a test user</p>
                     <p class="text-xs text-blue-700 mt-0.5">Google Cloud Console → APIs &amp; Services → <strong>OAuth consent screen</strong> → scroll to <strong>Test users</strong> → Add your Gmail address. You'll skip the warning immediately.</p>
                   </div>
+                  <p class="text-xs text-blue-700 mt-3">If Google reports <code>redirect_uri_mismatch</code>, make sure your OAuth client has this exact URI: <code class="font-mono select-all">{{ google_redirect_uri }}</code>. Also enable the <strong>People API</strong> and <strong>Gmail API</strong> in Google Cloud; if consent is in testing, add this Google account as a test user.</p>
                 </div>
               </div>
             </div>
